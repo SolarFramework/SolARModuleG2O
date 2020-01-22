@@ -89,6 +89,7 @@ Release/
 # documentation
 doc/
 doxygen/
+*.adoc
 
 *.log
 *.tlog
