@@ -52,17 +52,19 @@ public:
     /// @param[in] selectKeyframes : selected views to bundle following a given strategies (ex: poseGraph).
     /// @return the mean re-projection error after {pts3d, intrinsic, extrinsic} correction.
     double solve(const std::vector<SRef<Keyframe>> & originalKeyframes,
-        const std::vector<CloudPoint> & originalCloud,
-        const  CamCalibration & originalCalib,
-        const CamDistortion & originalDist,
-        const std::vector<int> & selectKeyframes,
-        std::vector<Transform3Df> & correctedPose,
-        std::vector<CloudPoint>&correctedCloud,
-        CamCalibration&correctedCalib,
-        CamDistortion &correctedDist) override;
+				const std::vector<CloudPoint> & originalCloud,
+				const  CamCalibration & originalCalib,
+				const CamDistortion & originalDist,
+				const std::vector<int> & selectKeyframes,
+				std::vector<Transform3Df> & correctedPoses,
+				std::vector<CloudPoint>&correctedCloud,
+				CamCalibration&correctedCalib,
+				CamDistortion &correctedDist) override;
 
 private:
-
+	int			m_iterations;
+	int			m_setVerbose;
+	int			m_nbMaxFixedKeyframes;
 };
 
 }
