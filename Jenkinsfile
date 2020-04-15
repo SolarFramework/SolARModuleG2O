@@ -56,7 +56,7 @@ pipeline {
         stage("Generate artifacts") {
             steps {
                 script {
-                    prepareRelease("SolARModuleG2O","linux-gcc","SolARModuleG2O")                
+                    prepareRelease("SolARBuild","linux-gcc","SolARModuleG2O")                
                 }
             }
         }  
