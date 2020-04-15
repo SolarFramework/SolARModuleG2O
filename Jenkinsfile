@@ -13,37 +13,22 @@ pipeline {
     triggers { pollSCM('* * * * *') }    
     stages {
 
-        stage("Get Binaries") {
-            when {
-                expression { params.RELEASE == false }
-            }            
-            steps {
-                script {
-                    BRANCH = BRANCH_NAME.replace('/','_')
-                }
-                withCredentials([usernamePassword(credentialsId: 'bc6e150e-ede8-4e35-8af4-0f037edee8ac', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
-                    getBinaries(BRANCH,USERNAME,PASSWORD)
-                }
-            }
-        }
-     
         stage("Get Third Parties") {
-             when {
-                expression { params.RELEASE == true }
-             }               
              steps {
-                getThirdParties('1.0.0')
+                 script {
+                     BRANCH = BRANCH_NAME.replace('/','_')
+                     version = sh (
+                        script: "cat *.pro  | grep VERSION | head -1 | cut -d '=' -f 2",
+                        returnStdout: true
+                     )
+                     version = version.replaceAll("[\r|\n]","")
+                 }
+                 withCredentials([string(credentialsId: 'artifactoryApiKey', variable: 'apiKey')]) {
+                    installRemaken(params.RELEASE,BRANCH,apiKey)
+                 }
              }
-        }
-
-        stage("Get Third Parties dependencies") {
-             when {
-                expression { params.RELEASE == false }
-             }               
-             steps {
-                installDependency('g2o','1.0.0')
-             }
-        }        
+        }    
+     
 
         stage("Build") {
              steps {
@@ -68,14 +53,22 @@ pipeline {
              }
         }       
 
+        stage("Generate artifacts") {
+            steps {
+                script {
+                    prepareRelease("SolARModuleG2O","linux-gcc","SolARModuleG2O")                
+                }
+            }
+        }  
+
         // Trigger only if not a RELEASE
-        stage("Share Binaries") {
+        stage("Upload to Artifactory") {
             when {
                 expression { params.RELEASE == false }
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'bc6e150e-ede8-4e35-8af4-0f037edee8ac', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
-                    shareBinaries(BRANCH,USERNAME,PASSWORD)
+                    uploadArchive(BRANCH,"SolARModuleG2O/${version}/linux","${WORKSPACE}/artifactory/x86_64_shared_release/SolARModuleG2O_${version}_x86_64_shared_release.zip",USERNAME,PASSWORD)
                 }
             }
         }
@@ -84,17 +77,9 @@ pipeline {
             when {
                 expression { params.RELEASE == true }
             }
-            steps {
-                script {
-                    version = sh (
-                        script: "cat *.pro  | grep VERSION | head -1 | cut -d '=' -f 2",
-                        returnStdout: true
-                    )
-                    version = version.replace("\n","")
-                }                
-                prepareRelease("SolARModuleG2O","linux-gcc","SolARModuleG2O")                
+            steps {              
                 withCredentials([string(credentialsId: 'github-token', variable: 'token')]) {
-                    release("SolARModuleG2O","SolARModuleG2O/${version}/unix","",token);
+                    release("SolARModuleG2O","SolARModuleG2O/${version}/unix","${WORKSPACE}/artifactory/x86_64_shared_release/SolARModuleG2O_${version}_x86_64_shared_release.zip ${WORKSPACE}/artifactory/x86_64_shared_release/SolARModuleG2O_${version}_x86_64_shared_debug.zip",token);
                 }
             }   
         }
