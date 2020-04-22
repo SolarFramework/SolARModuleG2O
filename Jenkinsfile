@@ -17,11 +17,7 @@ pipeline {
              steps {
                  script {
                      BRANCH = BRANCH_NAME.replace('/','_')
-                     version = sh (
-                        script: "cat *.pro  | grep VERSION | head -1 | cut -d '=' -f 2",
-                        returnStdout: true
-                     )
-                     version = version.replaceAll("[\r|\n]","")
+                     version = getVersion()
                  }
                  withCredentials([string(credentialsId: 'artifactoryApiKey', variable: 'apiKey')]) {
                     installRemaken(params.RELEASE,BRANCH,apiKey)
@@ -32,9 +28,7 @@ pipeline {
 
         stage("Build") {
              steps {
-                     sh "qmake SolARModuleG2O.pro"
-                     sh "make"
-                     sh "make install"
+                build("")
              }
         }
 
@@ -43,9 +37,7 @@ pipeline {
                 expression { params.RELEASE == true }
             }            
              steps {
-                     sh "qmake SolARModuleG2O.pro CONFIG+=debug"
-                     sh "make"
-                     sh "make install"
+                build("debug")
              }
         }       
 
