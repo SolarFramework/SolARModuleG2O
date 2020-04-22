@@ -32,11 +32,9 @@ pipeline {
 
         stage("Build") {
              steps {
-                 withEnv(['REMAKEN_RULES_ROOT=/home/jenkins/.remaken/rules/']) {
                      sh "qmake SolARModuleG2O.pro"
                      sh "make"
                      sh "make install"
-                 }
              }
         }
 
@@ -45,11 +43,9 @@ pipeline {
                 expression { params.RELEASE == true }
             }            
              steps {
-                 withEnv(['REMAKEN_RULES_ROOT=/home/jenkins/.remaken/rules/']) {
                      sh "qmake SolARModuleG2O.pro CONFIG+=debug"
                      sh "make"
                      sh "make install"
-                 }
              }
         }       
 
