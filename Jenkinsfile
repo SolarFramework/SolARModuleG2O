@@ -28,7 +28,7 @@ pipeline {
 
         stage("Build") {
              steps {
-                build("")
+                buildModule("")
              }
         }
 
@@ -37,7 +37,7 @@ pipeline {
                 expression { params.RELEASE == true }
             }            
              steps {
-                build("debug")
+                buildModule("debug")
              }
         }       
 
