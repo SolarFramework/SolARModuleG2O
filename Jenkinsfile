@@ -66,7 +66,7 @@ pipeline {
             }
             steps {
                 withCredentials([string(credentialsId: 'github-token', variable: 'token')]) {
-                    release("SolARModuleG2O","SolARModuleG2O/${version}/linux","SolARModuleG2O Version ${version} for Linux","${WORKSPACE}/artifactory/x86_64_shared_release/SolARModuleG2O${version}_x86_64_shared_release.zip ${WORKSPACE}/artifactory/x86_64_shared_debug/SolARModuleG2O${version}_x86_64_shared_debug.zip",token);
+                    release("SolARModuleG2O","SolARModuleG2O/${version}/linux","SolARModuleG2O Version ${version} for Linux","${WORKSPACE}/artifactory/x86_64_shared_release/SolARModuleG2O_${version}_x86_64_shared_release.zip ${WORKSPACE}/artifactory/x86_64_shared_debug/SolARModuleG2O_${version}_x86_64_shared_debug.zip",token);
                 }
             }   
         }
