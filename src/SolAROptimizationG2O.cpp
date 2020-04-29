@@ -16,16 +16,8 @@
 
 #include "SolAROptimizationG2O.h"
 #include <core/Log.h>
-#include <g2o/core/block_solver.h>
-#include <g2o/core/optimization_algorithm_levenberg.h>
-#include <g2o/solvers/eigen/linear_solver_eigen.h>
-#include <g2o/core/block_solver.h>
-#include <g2o/types/sba/types_six_dof_expmap.h>
-#include <g2o/types/sim3/types_seven_dof_expmap.h>
-#include <g2o/core/robust_kernel_impl.h>
 
 namespace xpcf = org::bcom::xpcf;
-
 
 XPCF_DEFINE_FACTORY_CREATE_INSTANCE(SolAR::MODULES::G2O::SolAROptimizationG2O)
 
@@ -224,6 +216,149 @@ double SolAROptimizationG2O::solve( const std::vector<SRef<Keyframe>> & original
 		correctedCloud[*it].setZ((float)xyz(2));
 	}
     return optimizer.chi2();
+}
+
+double SolAROptimizationG2O::solve(	const std::vector<std::vector<Keyline>> & originalKeylines,
+									const std::vector<Edge3Df> & lineCloud,
+									const std::vector<DescriptorMatch> & matches,
+									const std::vector<int> & indices,
+									const std::vector<Transform3Df> originalPoses,
+									std::vector<Edge3Df> & correctedLineCloud,
+									std::vector<Transform3Df> & correctedPoses)
+{
+	correctedPoses = originalPoses;
+	correctedLineCloud = lineCloud;
+	double reproj_error = 0.0;
+
+	// Setup optimizer
+	g2o::SparseOptimizer optimizer;
+	auto linearSolver = std::make_unique<g2o::LinearSolverEigen<g2o::BlockSolver_6_3::PoseMatrixType>>();
+
+	auto solver = new g2o::OptimizationAlgorithmLevenberg(std::make_unique<g2o::BlockSolver_6_3>(std::move(linearSolver)));
+	optimizer.setAlgorithm(solver);
+
+	// Register pose vertices
+	for (unsigned i = 0; i < originalPoses.size(); i++)
+	{
+		g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
+		vSE3->setEstimate(toSE3Quat(originalPoses[i].inverse()));
+		vSE3->setId(i);
+		vSE3->setFixed(i == 0);
+		optimizer.addVertex(vSE3);
+		LOG_DEBUG("insert pose: \n{}", vSE3->estimate());
+	}
+
+	const float thHuber2D = sqrt(5.99);
+	double invSigma = 0.5;
+	// Add LineCloud
+	for (unsigned i = 0; i < lineCloud.size(); i++)
+	{
+		Edge3Df line = lineCloud[i];
+		for (unsigned endpoint = 0; endpoint < 2; endpoint++)
+		{
+			unsigned id = originalPoses.size() + 2 * i + endpoint;
+			g2o::VertexSBAPointXYZ* vPoint = new g2o::VertexSBAPointXYZ();
+			if (!endpoint)
+				vPoint->setEstimate(Eigen::Matrix<double, 3, 1>(line.p1.getX(), line.p1.getY(), line.p1.getZ()));
+			else
+				vPoint->setEstimate(Eigen::Matrix<double, 3, 1>(line.p2.getX(), line.p2.getY(), line.p2.getZ()));
+			vPoint->setId(id);
+			vPoint->setMarginalized(true);
+			optimizer.addVertex(vPoint);
+
+			for (unsigned poseIdx = 0; poseIdx < originalPoses.size(); poseIdx++)
+			{
+				Keyline kl;
+				if (poseIdx == 0)
+					kl = originalKeylines[poseIdx][matches[indices[i]].getIndexInDescriptorA()];
+				else if (poseIdx == 1)
+					kl = originalKeylines[poseIdx][matches[indices[i]].getIndexInDescriptorB()];
+				else
+					continue;
+
+				// Define line function
+				Eigen::Vector3d lineF;
+				lineF <<
+					kl.getEndPointY() - kl.getStartPointY(),
+					-kl.getEndPointX() + kl.getStartPointX(),
+					kl.getEndPointX() * kl.getStartPointY() - kl.getStartPointX() * kl.getEndPointY();
+
+				EdgeLineProjectXYZ* e = new EdgeLineProjectXYZ();
+				e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id)));
+				e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(poseIdx)));
+				e->setMeasurement(lineF);
+				e->setInformation(Eigen::Matrix3d::Identity() * invSigma);
+
+				g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+				rk->setDelta(thHuber2D);
+				e->setRobustKernel(rk);
+
+				e->fx = m_camMatrix(0, 0);
+				e->fy = m_camMatrix(1, 1);
+				e->cx = m_camMatrix(0, 2);
+				e->cy = m_camMatrix(1, 2);
+				optimizer.addEdge(e);
+			}
+		}
+	}
+	// Optimize!
+	optimizer.initializeOptimization();
+	optimizer.setVerbose(m_setVerbose);
+	optimizer.optimize(m_iterations);
+	// Recover optimized data	
+	// Poses
+	for (unsigned i = 0; i < correctedPoses.size(); i++)
+	{
+		g2o::VertexSE3Expmap* vSE3 = static_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(i));
+		g2o::SE3Quat SE3quat = vSE3->estimate();
+		correctedPoses[i] = toSolarPose(SE3quat).inverse();
+		LOG_DEBUG("correctedPoses[{}]: \n{}", i, SE3quat);
+	}
+	// Lines
+	for (unsigned i = 0; i < correctedLineCloud.size(); i++)
+	{
+		for (unsigned endpoint = 0; endpoint < 2; endpoint++)
+		{
+			unsigned id = correctedPoses.size() + (2 * i) + endpoint;
+			g2o::VertexSBAPointXYZ* vPoint = static_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(id));
+			Eigen::Matrix<double, 3, 1> xyz = vPoint->estimate();
+			if (!endpoint)
+			{
+				correctedLineCloud[i].p1.setX((float)xyz(0));
+				correctedLineCloud[i].p1.setY((float)xyz(1));
+				correctedLineCloud[i].p1.setZ((float)xyz(2));
+			}
+			else
+			{
+				correctedLineCloud[i].p2.setX((float)xyz(0));
+				correctedLineCloud[i].p2.setY((float)xyz(1));
+				correctedLineCloud[i].p2.setZ((float)xyz(2));
+			}
+		}
+	}
+	reproj_error = (double) optimizer.chi2();
+	return optimizer.chi2();
+}
+
+void SolAROptimizationG2O::setCameraParameters(const CamCalibration & intrinsicParams, const CamDistortion & distortionParams)
+{
+	m_camDistortion(0, 0) = (double)distortionParams(0);
+	m_camDistortion(1, 0) = (double)distortionParams(1);
+	m_camDistortion(2, 0) = (double)distortionParams(2);
+	m_camDistortion(3, 0) = (double)distortionParams(3);
+	m_camDistortion(4, 0) = (double)distortionParams(4);
+
+	m_camMatrix(0, 0) = (double)intrinsicParams(0, 0);
+	m_camMatrix(0, 1) = (double)intrinsicParams(0, 1);
+	m_camMatrix(0, 2) = (double)intrinsicParams(0, 2);
+	m_camMatrix(1, 0) = (double)intrinsicParams(1, 0);
+	m_camMatrix(1, 1) = (double)intrinsicParams(1, 1);
+	m_camMatrix(1, 2) = (double)intrinsicParams(1, 2);
+	m_camMatrix(2, 0) = (double)intrinsicParams(2, 0);
+	m_camMatrix(2, 1) = (double)intrinsicParams(2, 1);
+	m_camMatrix(2, 2) = (double)intrinsicParams(2, 2);
+
+	m_Kinv = m_camMatrix.inverse();
 }
 
 }
