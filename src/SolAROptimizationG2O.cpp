@@ -37,6 +37,9 @@ namespace G2O {
 SolAROptimizationG2O::SolAROptimizationG2O():ConfigurableBase(xpcf::toUUID<SolAROptimizationG2O>())
 {
 	addInterface<api::solver::map::IBundler>(this);
+	declareInjectable<IPointCloudManager>(m_pointCloudManager);
+	declareInjectable<IKeyframesManager>(m_keyframesManager);
+	declareInjectable<ICovisibilityGraph>(m_covisibilityGraph);
 	declareProperty("nbIterations", m_iterations);
 	declareProperty("setVerbose", m_setVerbose);
 	declareProperty("nbMaxFixedKeyframes", m_nbMaxFixedKeyframes);
@@ -80,46 +83,45 @@ Transform3Df toSolarPose(const g2o::SE3Quat &SE3)
 	return pose;
 }
 
-double SolAROptimizationG2O::solve( const std::vector<SRef<Keyframe>> & originalKeyframes,
-                                    const std::vector<CloudPoint> & originalCloud,
-                                    const  CamCalibration & originalCalib,
-                                    const CamDistortion & originalDist,
-                                    const std::vector<int> & selectKeyframes,
-                                    std::vector<Transform3Df> & correctedPoses,
-                                    std::vector<CloudPoint>&correctedCloud,
-                                    CamCalibration&correctedCalib,
-                                    CamDistortion &correctedDist)
+double SolAROptimizationG2O::solve(const CamCalibration & K, const CamDistortion & D, const std::vector<uint32_t>& selectKeyframes)
 {
 	// init	
-	for (auto it : originalKeyframes)
-		correctedPoses.push_back(it->getPose());
+	//for (auto it : originalKeyframes)
+	//	correctedPoses.push_back(it->getPose());
 
-	correctedCloud = originalCloud;
-	double reproj_error = 0.f;
+	//correctedCloud = originalCloud;
+	//double reproj_error = 0.f;
 
 	// Local KeyFrames
 	std::set<unsigned int> idxLocalKeyFrames;
 	for (auto it : selectKeyframes) {
-		idxLocalKeyFrames.insert(it);	
-	}		
+		idxLocalKeyFrames.insert(it);
+	}
 
 	// Local MapPoints seen in Local KeyFrames
-	std::set<unsigned int> idxLocalCloudPoints;
-	for (auto & it_kf : idxLocalKeyFrames) {
-		std::map<unsigned int, unsigned int> mapPointVisibility = originalKeyframes[it_kf]->getVisibleMapPoints();
-		for (auto & it_pc : mapPointVisibility) {
+	std::set<uint32_t> idxLocalCloudPoints;
+	std::vector< SRef<Keyframe>> localKeyframes;
+	for (auto const &it_kf : idxLocalKeyFrames) {
+		SRef<Keyframe> localKeyframe;		
+		m_keyframesManager->getKeyframe(it_kf, localKeyframe);
+		localKeyframes.push_back(localKeyframe);
+		const std::map<uint32_t, uint32_t>& mapPointVisibility = localKeyframe->getVisibility();
+		for (auto const &it_pc : mapPointVisibility) {
 			idxLocalCloudPoints.insert(it_pc.second);
 		}
 	}
 
 	// Fixed Keyframes. Keyframes that see Local MapPoints but that are not Local Keyframes
-	std::set<unsigned int> idxFixedKeyFrames;
-	for (auto index : idxLocalCloudPoints) {
-		CloudPoint mapPoint = originalCloud[index];
-		const std::map<unsigned int, unsigned int> &kpVisibility = mapPoint.getVisibility();
-		for (auto it = kpVisibility.begin(); it != kpVisibility.end(); it++) {
-			if (idxLocalKeyFrames.find(it->first) == idxLocalKeyFrames.end())
-				idxFixedKeyFrames.insert(it->first);			
+	std::set<uint32_t> idxFixedKeyFrames;
+	std::vector<SRef<CloudPoint>> localCloudPoints;
+	for (auto const &index : idxLocalCloudPoints) {
+		SRef<CloudPoint> mapPoint;
+		m_pointCloudManager->getPoint(index, mapPoint);
+		localCloudPoints.push_back(mapPoint);
+		const std::map<uint32_t, uint32_t> &kpVisibility = mapPoint->getVisibility();
+		for (auto const &it : kpVisibility) {
+			if (idxLocalKeyFrames.find(it.first) == idxLocalKeyFrames.end())
+				idxFixedKeyFrames.insert(it.first);
 		}
 		if (idxFixedKeyFrames.size() >= m_nbMaxFixedKeyframes)
 			break;
@@ -137,48 +139,53 @@ double SolAROptimizationG2O::solve( const std::vector<SRef<Keyframe>> & original
 	optimizer.setAlgorithm(solver);
 
 	// Set Local KeyFrame vertices
-	for (auto it = idxLocalKeyFrames.begin(); it != idxLocalKeyFrames.end(); it++)
-	{
+	int maxKfId(0);
+	for (int i = 0; i < localKeyframes.size(); i++){
 		g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
-		vSE3->setEstimate(toSE3Quat(originalKeyframes[*it]->getPose().inverse()));
-		vSE3->setId(*it);
-		vSE3->setFixed(*it == 0);
+		vSE3->setEstimate(toSE3Quat(localKeyframes[i]->getPose().inverse()));
+		const uint32_t &kfId = localKeyframes[i]->getId();
+		vSE3->setId(kfId);
+		vSE3->setFixed(kfId == 0);
 		optimizer.addVertex(vSE3);
+		if (kfId > maxKfId)
+			maxKfId = kfId;
 	}
 
 	// Set Fixed KeyFrame vertices
-	for (auto it = idxFixedKeyFrames.begin(); it != idxFixedKeyFrames.end(); it++)
-	{
+	for (auto const &it : idxFixedKeyFrames){
+		SRef<Keyframe> localFixedKeyframe;
+		m_keyframesManager->getKeyframe(it, localFixedKeyframe);
 		g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
-		vSE3->setEstimate(toSE3Quat(originalKeyframes[*it]->getPose().inverse()));
-		vSE3->setId(*it);
+		vSE3->setEstimate(toSE3Quat(localFixedKeyframe->getPose().inverse()));
+		vSE3->setId(it);
 		vSE3->setFixed(true);
 		optimizer.addVertex(vSE3);
+		if (it > maxKfId)
+			maxKfId = it;
 	}
 
 	const float thHuber2D = sqrt(5.99);
 	// Set MapPoint vertices
-	for (auto it = idxLocalCloudPoints.begin(); it != idxLocalCloudPoints.end(); it++)
-	{
-		CloudPoint mapPoint = originalCloud[*it];
+	for (int i = 0; i < localCloudPoints.size(); i++){
+		const SRef<CloudPoint> &mapPoint = localCloudPoints[i];
 		g2o::VertexSBAPointXYZ* vPoint = new g2o::VertexSBAPointXYZ();
-		vPoint->setEstimate(Eigen::Matrix<double, 3, 1>(mapPoint.getX(), mapPoint.getY(), mapPoint.getZ()));
-		const int id = originalKeyframes.size() + *it;
+		vPoint->setEstimate(Eigen::Matrix<double, 3, 1>(mapPoint->getX(), mapPoint->getY(), mapPoint->getZ()));
+		const int id = maxKfId + mapPoint->getId();
 		vPoint->setId(id);
 		vPoint->setMarginalized(true);
 		optimizer.addVertex(vPoint);
 
-		const std::map<unsigned int, unsigned int> &kpVisibility = mapPoint.getVisibility();
-		for (auto it = kpVisibility.begin(); it != kpVisibility.end(); it++) {
-			if (idxLocalKeyFrames.find(it->first) == idxLocalKeyFrames.end())
-				idxFixedKeyFrames.insert(it->first);
-		}
+		const std::map<unsigned int, unsigned int> &kpVisibility = mapPoint->getVisibility();
 
 		//Set edges between each cloud point and keyframes
-		for (auto it = kpVisibility.begin(); it != kpVisibility.end(); it++) {
-			int idxKf = it->first;
-			SRef<Keyframe> kf = originalKeyframes[idxKf];
-			Keypoint kp = kf->getKeypoints()[it->second];
+		for (auto const &it : kpVisibility) {
+			int idxKf = it.first;
+			int idxKp = it.second;
+			if ((idxLocalKeyFrames.find(idxKf) == idxLocalKeyFrames.end()) && (idxFixedKeyFrames.find(idxKf) == idxFixedKeyFrames.end()))
+				continue;
+			SRef<Keyframe> kf;
+			m_keyframesManager->getKeyframe(idxKf, kf);
+			const Keypoint &kp = kf->getKeypoints()[idxKp];
 			Eigen::Matrix<double, 2, 1> obs;
 			obs << kp.getX(), kp.getY();
 
@@ -193,37 +200,39 @@ double SolAROptimizationG2O::solve( const std::vector<SRef<Keyframe>> & original
 			e->setRobustKernel(rk);
 			rk->setDelta(thHuber2D);
 
-			e->fx = originalCalib(0, 0);
-			e->fy = originalCalib(1, 1);
-			e->cx = originalCalib(0, 2);
-			e->cy = originalCalib(1, 2);
+			e->fx = K(0, 0);
+			e->fy = K(1, 1);
+			e->cx = D(0, 2);
+			e->cy = D(1, 2);
 			optimizer.addEdge(e);
 		}
 	}
 
 	// Optimize!
 	optimizer.initializeOptimization();
-	optimizer.setVerbose(m_setVerbose);	
+	optimizer.setVerbose(m_setVerbose);
 	optimizer.optimize(m_iterations);
 	// Recover optimized data	
 	//Keyframes
-	for (auto it = idxLocalKeyFrames.begin(); it != idxLocalKeyFrames.end(); it++)
-	{
-		g2o::VertexSE3Expmap* vSE3 = static_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(*it));
+	for (int i = 0; i < localKeyframes.size(); i++){
+		const uint32_t &kfId = localKeyframes[i]->getId();
+		g2o::VertexSE3Expmap* vSE3 = static_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(kfId));
 		g2o::SE3Quat SE3quat = vSE3->estimate();
-		correctedPoses[*it] = toSolarPose(SE3quat).inverse();
+		localKeyframes[i]->setPose(toSolarPose(SE3quat).inverse());
 	}
 
 	//Points
-	for (auto it = idxLocalCloudPoints.begin(); it != idxLocalCloudPoints.end(); it++)
+	for (int i = 0; i < localCloudPoints.size(); i++)
 	{
-		g2o::VertexSBAPointXYZ* vPoint = static_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(originalKeyframes.size() + *it));
+		const SRef<CloudPoint> &mapPoint = localCloudPoints[i];
+		const int id = maxKfId + mapPoint->getId();
+		g2o::VertexSBAPointXYZ* vPoint = static_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(id));
 		Eigen::Matrix<double, 3, 1> xyz = vPoint->estimate();
-		correctedCloud[*it].setX((float)xyz(0));
-		correctedCloud[*it].setY((float)xyz(1));
-		correctedCloud[*it].setZ((float)xyz(2));
+		mapPoint->setX((float)xyz(0));
+		mapPoint->setY((float)xyz(1));
+		mapPoint->setZ((float)xyz(2));
 	}
-    return optimizer.chi2();
+	return optimizer.chi2();
 }
 
 }

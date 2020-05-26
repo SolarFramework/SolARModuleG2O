@@ -73,6 +73,7 @@ Debug/
 Release/
 *-packagedependencies.*
 *-packagedependencies-win.*
+*.pc
 
 # MinGW generated files
 *.Debug
