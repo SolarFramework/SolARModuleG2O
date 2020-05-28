@@ -218,9 +218,6 @@ int main(int argc, char ** argv) {
 	pointCloudManager->getAllPoints(refPointCloud);
 
 	// get point cloud and keyframe poses before BA to display
-	std::vector<CloudPoint> pointCloudBefore;
-	for (auto const &it : refPointCloud)
-		pointCloudBefore.push_back(*it);
 	std::vector<Transform3Df> keyframePosesBefore;
 	std::vector<uint32_t> selectedKeyframes;
 	for (auto const &it : keyframes) {
@@ -232,7 +229,7 @@ int main(int argc, char ** argv) {
 	LOG_INFO("Number of point cloud: {}", refPointCloud.size());
 		
 	LOG_INFO("Keyframe1 pose before: \n{}", keyframePosesBefore[1].matrix());
-	LOG_INFO("Point cloud 1 before: \n{}", pointCloudBefore[1]);
+	LOG_INFO("Point cloud 1 before: \n{}", *refPointCloud[1]);
 
 	LOG_INFO("Run bundle adjustment");
 	double reproj_errorFinal = bundler->solve(intrinsic, distorsion, selectedKeyframes);
@@ -242,15 +239,12 @@ int main(int argc, char ** argv) {
 	for (auto const &it : keyframes) {
 		keyframePosesAfter.push_back(it->getPose());
 	}
-	std::vector<CloudPoint> pointCloudAfter;
-	for (auto const &it : refPointCloud)
-		pointCloudAfter.push_back(*it);	
 	LOG_INFO("Map after bundle adjustment");
 	LOG_INFO("Keyframe1 pose after: \n{}", keyframePosesAfter[1].matrix());
-	LOG_INFO("Point cloud 1 after: \n{}", pointCloudAfter[1]);
+	LOG_INFO("Point cloud 1 after: \n{}", *refPointCloud[1]);
 	
     while (true) {
-        if (viewer3DPoints->display(pointCloudAfter, keyframePosesAfter[0], keyframePosesAfter) == FrameworkReturnCode::_STOP) {
+        if (viewer3DPoints->display(refPointCloud, keyframePosesAfter[0], keyframePosesAfter) == FrameworkReturnCode::_STOP) {
 			break;
         }
     }

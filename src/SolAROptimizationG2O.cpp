@@ -195,8 +195,8 @@ double SolAROptimizationG2O::solve(const CamCalibration & K, const CamDistortion
 
 			e->fx = K(0, 0);
 			e->fy = K(1, 1);
-			e->cx = D(0, 2);
-			e->cy = D(1, 2);
+			e->cx = K(0, 2);
+			e->cy = K(1, 2);
 			optimizer.addEdge(e);
 		}
 	}
