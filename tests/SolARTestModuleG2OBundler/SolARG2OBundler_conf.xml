@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<xpcf-registry autoAlias="true">  
+	<module uuid="28b89d39-41bd-451d-b19e-d25a3d7c5797" name="SolARModuleTools"  description="SolARModuleTools"  path="$REMAKEN_PKG_ROOT/packages/SolARBuild/win-cl-14.1/SolARModuleTools/0.8.1/lib/x86_64/shared">
+        <component uuid="958165e9-c4ea-4146-be50-b527a9a851f0" name="SolARPointCloudManager" description="SolARPointCloudManager">
+				<interface uuid="125f2007-1bf9-421d-9367-fbdc1210d006" name="IComponentIntrospect" description="IComponentIntrospect"/>
+				<interface uuid="264d4406-b726-4ce9-a430-35d8b5e70331" name="IPointCloudManager" description="IPointCloudManager"/>
+        </component>
+        <component uuid="f94b4b51-b8f2-433d-b535-ebf1f54b4bf6" name="SolARKeyframesManager" description="SolARPointCloudManager">
+				<interface uuid="125f2007-1bf9-421d-9367-fbdc1210d006" name="IComponentIntrospect" description="IComponentIntrospect"/>
+				<interface uuid="2c147595-6c74-4f69-b63d-91e162c311ed" name="IKeyframesManager" description="IPointCloudManager"/>
+        </component>
+		<component uuid="17c7087f-3394-4b4b-8e6d-3f8639bb00ea" name="SolARCovisibilityGraph" description="SolARCovisibilityGraph">
+				<interface uuid="125f2007-1bf9-421d-9367-fbdc1210d006" name="IComponentIntrospect" description="IComponentIntrospect"/>
+				<interface uuid="15455f5a-0e99-49e5-a3fb-39de3eeb5b9b" name="ICovisibilityGraph" description="ICovisibilityGraph"/>
+        </component>
+    </module>	
+    <module uuid="8f94a3c5-79ed-4851-9502-98033eae3a3b" name="SolARModuleG2O" description="SolARModuleG2O" path="$REMAKEN_PKG_ROOT/packages/SolARBuild/win-cl-14.1/SolARModuleG2O/0.8.1/lib/x86_64/shared">
+        <component uuid="870d89ba-bb5f-460a-a817-1fcb6473df70" name="SolAROptimizationG2O" description="SolAROptimizationG2O">
+                <interface uuid="125f2007-1bf9-421d-9367-fbdc1210d006" name="IComponentIntrospect" description="IComponentIntrospect"/>
+                <interface uuid="35b9bdb7-d23c-4909-984f-ae7f9a292e6c" name="IBundler" description="IBundler"/>
+        </component>
+    </module> 
+	<module uuid="6e960df6-9a36-11e8-9eb6-529269fb1459" name="SolARModuleOpenGL" description="SolARModuleOpenGL" path="$REMAKEN_PKG_ROOT/packages/SolARBuild/win-cl-14.1/SolARModuleOpenGL/0.8.1/lib/x86_64/shared">
+        <component uuid="afd38ea0-9a46-11e8-9eb6-529269fb1459" name="SolAR3DPointsViewerOpengl" description="SolAR3DPointsViewerOpengl">
+                <interface uuid="125f2007-1bf9-421d-9367-fbdc1210d006" name="IComponentIntrospect" description="IComponentIntrospect"/>
+                <interface uuid="575d365a-9a27-11e8-9eb6-529269fb1459" name="I3DPointsViewer" description="I3DPointsViewer"/>
+        </component>
+    </module>
+	<factory>
+        <bindings>
+                <bind interface="IPointCloudManager" to="SolARPointCloudManager" scope="Singleton"/>
+                <bind interface="IKeyframesManager" to="SolARKeyframesManager" scope="Singleton"/>
+				<bind interface="ICovisibilityGraph" to="SolARCovisibilityGraph" scope="Singleton"/>
+        </bindings>
+    </factory>
+	<properties>	
+		<configure component="SolAROptimizationG2O"> 
+			<property name="nbIterations" type="Integer" value="10"/>
+			<property name="setVerbose" type="Integer" value="1"/>
+			<property name="nbMaxFixedKeyframes" type="Integer" value="30"/>
+		</configure>
+		<configure component="SolAR3DPointsViewerOpengl">
+            <property name="title" type="string" value="Points Cloud"/>
+			<property name="width" type="UnsignedInteger" value="1280"/>
+			<property name="height" type="UnsignedInteger" value="960"/>
+			<property name="backgroundColor" type="UnsignedInteger">
+				<value>0</value>
+				<value>0</value>
+				<value>0</value>
+			</property>
+			<property name="fixedPointsColor" type="UnsignedInteger" value="1"/>
+			<property name="pointsColor" type="UnsignedInteger">
+				<value>0</value>
+				<value>255</value>
+				<value>0</value>
+			</property>
+			<property name="cameraColor" type="UnsignedInteger">
+				<value>255</value>
+				<value>255</value>
+				<value>255</value>
+			</property>
+			<property name="drawCameraAxis" type="UnsignedInteger" value="1"/>
+			<property name="drawSceneAxis" type="UnsignedInteger" value="1"/>
+			<property name="drawWorldAxis" type="UnsignedInteger" value="1"/>
+			<property name="axisScale" type="Float" value="1.0"/>
+			<property name="pointSize" type="Float" value="3.0"/>
+			<property name="cameraScale" type="Float" value="1.0"/>
+			<property name="keyframeAsCamera" type="UnsignedInteger" value="1"/>
+			<property name="framesColor" type="UnsignedInteger">
+				<value>255</value>
+				<value>0</value>
+				<value>0</value>
+			</property>
+			<property name="keyframesColor" type="UnsignedInteger">
+				<value>0</value>
+				<value>0</value>
+				<value>255</value>
+			</property>
+			<property name="zoomSensitivity" type="Float" value="10.0"/>
+			<property name="exitKey" type="Integer" value="27"/>
+        </configure>
+    </properties>
+</xpcf-registry>

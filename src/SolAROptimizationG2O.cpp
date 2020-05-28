@@ -85,19 +85,12 @@ Transform3Df toSolarPose(const g2o::SE3Quat &SE3)
 
 double SolAROptimizationG2O::solve(const CamCalibration & K, const CamDistortion & D, const std::vector<uint32_t>& selectKeyframes)
 {
-	// init	
-	//for (auto it : originalKeyframes)
-	//	correctedPoses.push_back(it->getPose());
-
-	//correctedCloud = originalCloud;
-	//double reproj_error = 0.f;
-
 	// Local KeyFrames
 	std::set<unsigned int> idxLocalKeyFrames;
 	for (auto it : selectKeyframes) {
 		idxLocalKeyFrames.insert(it);
 	}
-
+	
 	// Local MapPoints seen in Local KeyFrames
 	std::set<uint32_t> idxLocalCloudPoints;
 	std::vector< SRef<Keyframe>> localKeyframes;
@@ -170,7 +163,7 @@ double SolAROptimizationG2O::solve(const CamCalibration & K, const CamDistortion
 		const SRef<CloudPoint> &mapPoint = localCloudPoints[i];
 		g2o::VertexSBAPointXYZ* vPoint = new g2o::VertexSBAPointXYZ();
 		vPoint->setEstimate(Eigen::Matrix<double, 3, 1>(mapPoint->getX(), mapPoint->getY(), mapPoint->getZ()));
-		const int id = maxKfId + mapPoint->getId();
+		const int id = maxKfId + 1 + mapPoint->getId();
 		vPoint->setId(id);
 		vPoint->setMarginalized(true);
 		optimizer.addVertex(vPoint);
@@ -225,7 +218,7 @@ double SolAROptimizationG2O::solve(const CamCalibration & K, const CamDistortion
 	for (int i = 0; i < localCloudPoints.size(); i++)
 	{
 		const SRef<CloudPoint> &mapPoint = localCloudPoints[i];
-		const int id = maxKfId + mapPoint->getId();
+		const int id = maxKfId + 1 + mapPoint->getId();
 		g2o::VertexSBAPointXYZ* vPoint = static_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(id));
 		Eigen::Matrix<double, 3, 1> xyz = vPoint->estimate();
 		mapPoint->setX((float)xyz(0));
