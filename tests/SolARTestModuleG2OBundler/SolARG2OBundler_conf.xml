@@ -40,7 +40,7 @@
 			<property name="nbMaxFixedKeyframes" type="Integer" value="30"/>
 		</configure>
 		<configure component="SolAR3DPointsViewerOpengl">
-            <property name="title" type="string" value="Points Cloud"/>
+            <property name="title" type="string" value="Points Cloud - Green = origin, Red = optimized (Press esc to exit)"/>
 			<property name="width" type="UnsignedInteger" value="1280"/>
 			<property name="height" type="UnsignedInteger" value="960"/>
 			<property name="backgroundColor" type="UnsignedInteger">
