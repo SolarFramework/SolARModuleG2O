@@ -83,7 +83,7 @@ Transform3Df toSolarPose(const g2o::SE3Quat &SE3)
 	return pose;
 }
 
-double SolAROptimizationG2O::solve(const CamCalibration & K, const CamDistortion & D, const std::vector<uint32_t>& selectKeyframes)
+double SolAROptimizationG2O::solve(CamCalibration & K, CamDistortion & D, const std::vector<uint32_t>& selectKeyframes)
 {
 	// Local KeyFrames
 	std::set<unsigned int> idxLocalKeyFrames;
