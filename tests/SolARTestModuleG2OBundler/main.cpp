@@ -64,10 +64,10 @@ int main(int argc, char ** argv) {
     const std::string path_points3d     = "../../SolARTestModuleG2OBundler/" + scene + "Bundle/" + scene + "Pts3D.txt";;
     const std::string path_points2d     = "../../SolARTestModuleG2OBundler/" + scene + "Bundle/" + scene + "Pts2D.txt";
     const std::string path_calibration  = "../../SolARTestModuleG2OBundler/" + scene + "Bundle/" + scene + "Calibration.txt";
-    const std::string path_distorison   = "../../SolARTestModuleG2OBundler/" + scene + "Bundle/" + scene + "Distorsion.txt";
+    const std::string path_distortion   = "../../SolARTestModuleG2OBundler/" + scene + "Bundle/" + scene + "Distortion.txt";
 
 	CamCalibration  intrinsic;
-	CamDistortion   distorsion;
+    CamDistortion   distortion;
 
 	auto load2DPoints = [&](const std::string & path_measures) {
 		int N;
@@ -125,16 +125,16 @@ int main(int argc, char ** argv) {
 		return true;
 	};
 
-	auto loadDistorsions = [&](const std::string&path_dist) {
+    auto loadDistortions = [&](const std::string&path_dist) {
 		std::ifstream ox(path_dist);
 		if (!ox.is_open()) {
-			LOG_INFO("can't read distorsion file from", path_dist);
+            LOG_INFO("can't read distortion file from", path_dist);
 			return false;
 		}
 		else {
 			LOG_INFO("Loading intrinsic ");
 			for (int i = 0; i < 5; ++i) {
-				ox >> distorsion[i];
+                ox >> distortion[i];
 			}
 		}
 		return true;
@@ -207,7 +207,7 @@ int main(int argc, char ** argv) {
     load2DPoints(path_points2d);
     loadExtrinsics(path_poses);
     loadIntrinsic(path_calibration);
-    loadDistorsions(path_distorison);
+    loadDistortions(path_distortion);
 	load3DPoints(path_points3d);
 
 	// get all keyframes
@@ -238,7 +238,7 @@ int main(int argc, char ** argv) {
 	LOG_INFO("Point cloud 1 before: \n{}", *refPointCloud[1]);
 
 	LOG_INFO("Run bundle adjustment");
-	double reproj_errorFinal = bundler->solve(intrinsic, distorsion, selectedKeyframes);
+    double reproj_errorFinal = bundler->solve(intrinsic, distortion, selectedKeyframes);
 	LOG_INFO("Reprojection error final: {}", reproj_errorFinal);
 
 	std::vector<Transform3Df> keyframePosesAfter;
