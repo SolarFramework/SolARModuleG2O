@@ -5,7 +5,6 @@ CONFIG -= qt
 ## global defintions : target lib name, version
 INSTALLSUBDIR = SolARBuild
 TARGET = SolARModuleG2O
-
 FRAMEWORK = $$TARGET
 VERSION=0.8.0
 
@@ -42,7 +41,7 @@ INCLUDEPATH += interfaces/
 
 include (SolARModuleG2O.pri)
 
-unix {
+unix:!android {
     QMAKE_CXXFLAGS += -Wignored-qualifiers
 }
 
@@ -59,7 +58,11 @@ win32 {
 
     DEFINES += WIN64 UNICODE _UNICODE
     QMAKE_COMPILER_DEFINES += _WIN64
-    QMAKE_CXXFLAGS += -wd4250 -wd4251 -wd4244 -wd4275
+    QMAKE_CXXFLAGS += -wd4250 -wd4251 -wd4244 -wd4275 /Od
+}
+
+android {
+    QMAKE_LFLAGS += -nostdlib++
 }
 
 header_files.path = $${PROJECTDEPLOYDIR}/interfaces
@@ -76,3 +79,8 @@ OTHER_FILES += \
 
 #NOTE : Must be placed at the end of the .pro
 include ($$shell_quote($$shell_path($${QMAKE_REMAKEN_RULES_ROOT}/remaken_install_target.pri)))) # Shell_quote & shell_path required for visual on windows
+
+DISTFILES += \
+    packagedependencies-linux.txt \
+    packagedependencies-mac.txt \
+    packagedependencies-win.txt
