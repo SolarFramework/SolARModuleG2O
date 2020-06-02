@@ -22,13 +22,14 @@
 namespace SolAR {
 namespace MODULES {
 /**
- * @namespace SolAR::MODULES::G20
- * @brief <B>Provides a bundle adjustment component based on G20 library: https://github.com/OpenSLAM-org/openslam_g2o</B>
+ * @namespace SolAR::MODULES::G2O
+ * @brief <B>Provides a bundle adjustment component based on G2O library: https://github.com/OpenSLAM-org/openslam_g2o</B>
  * <TT>UUID: 8f94a3c5-79ed-4851-9502-98033eae3a3b</TT>
  *
  */
 namespace G2O {
 class SolAROptimizationG2O;
+class SolARPoseEstimationPnPL;
 }
 }
 }
@@ -37,5 +38,11 @@ XPCF_DEFINE_COMPONENT_TRAITS(SolAR::MODULES::G2O::SolAROptimizationG2O,
                              "870d89ba-bb5f-460a-a817-1fcb6473df70",
                              "SolAROptimizationG2O",
                              "Bundle adjustment optimization")
+
+XPCF_DEFINE_COMPONENT_TRAITS(SolAR::MODULES::G2O::SolARPoseEstimationPnPL,
+							 "b76fe9a6-af2b-4778-a121-b54a41565a70",
+							 "SolARPoseEstimationPnPL",
+							 "Pose Estimation using Perspective-n-PointLine")
+
 
 #endif // SOLARMODULEG2O_TRAITS_H

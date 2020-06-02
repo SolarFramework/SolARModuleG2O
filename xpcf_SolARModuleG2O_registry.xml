@@ -5,5 +5,9 @@
                 <interface uuid="125f2007-1bf9-421d-9367-fbdc1210d006" name="IComponentIntrospect" description="IComponentIntrospect"/>
                 <interface uuid="35b9bdb7-d23c-4909-984f-ae7f9a292e6c" name="IBundler" description="IBundler"/>
         </component>
-    </module>    
+		<component uuid="b76fe9a6-af2b-4778-a121-b54a41565a70" name="SolARPoseEstimationPnPL" description="SolARPoseEstimationPnPL">
+                <interface uuid="125f2007-1bf9-421d-9367-fbdc1210d006" name="IComponentIntrospect" description="IComponentIntrospect"/>
+                <interface uuid="c6e82ced-2e26-4e64-b70d-a77f9961e9af" name="I3DTransformFinderFrom2D3DPointLine" description="I3DTransformFinderFrom2D3DPointLine"/>
+        </component>
+    </module>
 </xpcf-registry>
