@@ -158,6 +158,7 @@ double SolAROptimizationG2O::solve(CamCalibration & K, CamDistortion & D, const 
 	}
 
 	const float thHuber2D = sqrt(5.99);
+	int nbObservations(0);
 	// Set MapPoint vertices
 	for (int i = 0; i < localCloudPoints.size(); i++){
 		const SRef<CloudPoint> &mapPoint = localCloudPoints[i];
@@ -198,6 +199,7 @@ double SolAROptimizationG2O::solve(CamCalibration & K, CamDistortion & D, const 
 			e->cx = K(0, 2);
 			e->cy = K(1, 2);
 			optimizer.addEdge(e);
+			nbObservations++;
 		}
 	}
 
@@ -225,7 +227,7 @@ double SolAROptimizationG2O::solve(CamCalibration & K, CamDistortion & D, const 
 		mapPoint->setY((float)xyz(1));
 		mapPoint->setZ((float)xyz(2));
 	}
-	return optimizer.chi2();
+	return optimizer.chi2() / nbObservations;
 }
 
 }
