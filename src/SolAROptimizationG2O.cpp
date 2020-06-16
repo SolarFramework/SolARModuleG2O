@@ -23,6 +23,8 @@
 #include <g2o/types/sba/types_six_dof_expmap.h>
 #include <g2o/types/sim3/types_seven_dof_expmap.h>
 #include <g2o/core/robust_kernel_impl.h>
+#include <map>
+#include <numeric>
 
 namespace xpcf = org::bcom::xpcf;
 
@@ -159,6 +161,8 @@ double SolAROptimizationG2O::solve(CamCalibration & K, CamDistortion & D, const 
 
 	const float thHuber2D = sqrt(5.99);
 	int nbObservations(0);
+	std::vector<g2o::EdgeSE3ProjectXYZ*> allEdges;
+	std::vector<uint32_t> pointEdges;
 	// Set MapPoint vertices
 	for (int i = 0; i < localCloudPoints.size(); i++){
 		const SRef<CloudPoint> &mapPoint = localCloudPoints[i];
@@ -200,6 +204,8 @@ double SolAROptimizationG2O::solve(CamCalibration & K, CamDistortion & D, const 
 			e->cy = K(1, 2);
 			optimizer.addEdge(e);
 			nbObservations++;
+			allEdges.push_back(e);
+			pointEdges.push_back(mapPoint->getId());
 		}
 	}
 
@@ -226,6 +232,19 @@ double SolAROptimizationG2O::solve(CamCalibration & K, CamDistortion & D, const 
 		mapPoint->setX((float)xyz(0));
 		mapPoint->setY((float)xyz(1));
 		mapPoint->setZ((float)xyz(2));
+	}
+
+	//Update re-projection error of point cloud
+	std::map<uint32_t, std::vector<double>> projErrors;
+	for (int i = 0; i < allEdges.size(); i++) {
+		g2o::EdgeSE3ProjectXYZ* e = allEdges[i];
+		uint32_t cloudPoint_id = pointEdges[i];
+		projErrors[cloudPoint_id].push_back(std::sqrt(e->chi2()));
+	}
+	for (const auto &it : projErrors) {
+		SRef<CloudPoint> mapPoint;
+		m_pointCloudManager->getPoint(it.first, mapPoint);
+		mapPoint->setReprojError(std::accumulate(it.second.begin(), it.second.end(), 0.0) / it.second.size());
 	}
 	return optimizer.chi2() / nbObservations;
 }
