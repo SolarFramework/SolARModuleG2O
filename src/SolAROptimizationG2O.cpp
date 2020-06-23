@@ -424,29 +424,16 @@ double SolAROptimizationG2O::globalBundleAdjustment(CamCalibration & K, CamDisto
 
     // MapPoints seen in Local KeyFrames :
     // we select the union of points which are visible by at least one frame
-    for (auto const &it_kf : idxGlobalKeyFrames) {
-        SRef<Keyframe> localKeyframe;
-        m_keyframesManager->getKeyframe(it_kf, localKeyframe);
-        const std::map<uint32_t, uint32_t>& mapPointVisibility = localKeyframe->getVisibility();
-        for (auto const &it_pc : mapPointVisibility) {
-            idxGlobalCloudPoints.insert(it_pc.second);
-        }
-    }
-    for (auto const &index : idxGlobalCloudPoints) {
-        SRef<CloudPoint> mapPoint;
-        m_pointCloudManager->getPoint(index, mapPoint);
-        globalCloudPoints.push_back(mapPoint);
-
-    }
+    m_pointCloudManager->getAllPoints(globalCloudPoints);
 
     // only fix the first frame
-    if(idxGlobalKeyFrames.size() > 0)
+    if(globalKeyframes.size() > 0)
         idxFixedKeyFrames.insert(0);
 
     //
     LOG_DEBUG("Nb Global Keyframes: {}", idxGlobalKeyFrames.size());
     LOG_DEBUG("Nb Fixed Keyframes: {}",  idxFixedKeyFrames.size());
-    LOG_DEBUG("Nb Global pointclos: {}", idxGlobalCloudPoints.size());
+    LOG_DEBUG("Nb Global pointclos: {}", globalCloudPoints.size());
 
     // Setup optimizer
     g2o::SparseOptimizer optimizer;
