@@ -238,8 +238,11 @@ int main(int argc, char ** argv) {
 	LOG_INFO("Point cloud 1 before: \n{}", *refPointCloud[1]);
 
 	LOG_INFO("Run bundle adjustment");
-    double reproj_errorFinal = bundler->bundleAdjustment(intrinsic, distortion, selectedKeyframes);
-	LOG_INFO("Reprojection error final: {}", reproj_errorFinal);
+    // double reproj_errorFinal_local  = bundler->bundleAdjustment(intrinsic, distortion, selectedKeyframes);
+    std::vector<uint32_t> noSelectedKeyframes;
+    double reproj_errorFinal_global = bundler->bundleAdjustment(intrinsic, distortion, noSelectedKeyframes);
+    // LOG_INFO("Reprojection error final for local bundle: {}", reproj_errorFinal_local);
+    LOG_INFO("Reprojection error final for global bundle: {}", reproj_errorFinal_global);
 
 	std::vector<Transform3Df> keyframePosesAfter;
 	for (auto const &it : keyframes) {
