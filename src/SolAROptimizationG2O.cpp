@@ -85,6 +85,16 @@ Transform3Df toSolarPose(const g2o::SE3Quat &SE3)
 	return pose;
 }
 
+double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, CamDistortion & D, const std::vector<uint32_t>& selectKeyframes, const bool & useSpanningTree)
+{
+	if (selectKeyframes.size() > 0)
+		return localBundleAdjustment(K, D, selectKeyframes);
+	else if (useSpanningTree)
+		return optimizeSpanningTree(K, D);
+	else
+		return globalBundleAdjustment(K, D);
+}
+
 double SolAROptimizationG2O::localBundleAdjustment(CamCalibration & K, CamDistortion & D, const std::vector<uint32_t>& selectKeyframes)
 {
 	// Local KeyFrames

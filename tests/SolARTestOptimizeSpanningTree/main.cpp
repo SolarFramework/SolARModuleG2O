@@ -101,7 +101,7 @@ int main(int argc, char ** argv) {
 	LOG_INFO("Run global bundle adjustment on the spanning tree");
 	clock_t start, end;
 	start = clock();
-    double reproj_errorFinal = bundler->optimizeSpanningTree(calibration, distortion);
+	double reproj_errorFinal = bundler->bundleAdjustment(calibration, distortion, {}, true);
 	end = clock();
 	double duration = double(end - start) / CLOCKS_PER_SEC;
 	LOG_INFO("Execution time : {}", duration);
