@@ -249,6 +249,154 @@ double SolAROptimizationG2O::solve(CamCalibration & K, CamDistortion & D, const 
 	return optimizer.chi2() / nbObservations;
 }
 
+double SolAROptimizationG2O::optimizeSpanningTree(CamCalibration & K, CamDistortion & D)
+{
+	// get all keyframes
+	std::vector<SRef<Keyframe>> keyframes;
+	m_keyframesManager->getAllKeyframes(keyframes);
+
+	// get the maximal spanning tree
+	std::vector<std::tuple<uint32_t, uint32_t, float>> edgesSpanningTree;
+	float totalWeights;
+	m_covisibilityGraph->maximalSpanningTree(edgesSpanningTree, totalWeights);
+
+	// get cloud points belong to maximal spanning tree	
+	std::set<uint32_t> idxCloudPoints;
+	for (const auto &edge : edgesSpanningTree) {
+		SRef<Keyframe> kf1, kf2;
+		m_keyframesManager->getKeyframe(std::get<0>(edge), kf1);
+		m_keyframesManager->getKeyframe(std::get<1>(edge), kf2);
+		std::map<uint32_t, uint32_t> kf1_visibilites = kf1->getVisibility();
+		std::map<uint32_t, uint32_t> kf2_visibilites = kf2->getVisibility();
+		std::map<uint32_t, int> countNbSeenCP;
+		// get common cloud points of two keyframes
+		for (const auto &it : kf1_visibilites)
+			countNbSeenCP[it.second]++;
+		for (const auto &it : kf2_visibilites)
+			countNbSeenCP[it.second]++;
+		for (const auto &it : countNbSeenCP)
+			if (it.second >= 2)
+				idxCloudPoints.insert(it.first);
+	}
+	std::vector<SRef<CloudPoint>> cloudPoints;
+	for (const auto &it : idxCloudPoints) {
+		SRef<CloudPoint> point;
+		m_pointCloudManager->getPoint(it, point);
+		cloudPoints.push_back(point);
+	}
+	
+	// Setup optimizer
+	g2o::SparseOptimizer optimizer;
+	auto linearSolver = std::make_unique<g2o::LinearSolverEigen<g2o::BlockSolver_6_3::PoseMatrixType>>();
+
+	auto solver = new g2o::OptimizationAlgorithmLevenberg(std::make_unique<g2o::BlockSolver_6_3>(std::move(linearSolver)));
+	optimizer.setAlgorithm(solver);
+
+	// Set keyFrames vertices
+	int maxKfId(0);
+	for (int i = 0; i < keyframes.size(); i++) {
+		g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
+		vSE3->setEstimate(toSE3Quat(keyframes[i]->getPose().inverse()));
+		const uint32_t &kfId = keyframes[i]->getId();
+		vSE3->setId(kfId);
+		vSE3->setFixed(kfId == 0);
+		optimizer.addVertex(vSE3);
+		if (kfId > maxKfId)
+			maxKfId = kfId;
+	}
+
+	const float thHuber2D = sqrt(5.99);
+	int nbObservations(0);
+	std::vector<g2o::EdgeSE3ProjectXYZ*> allEdges;
+	std::vector<uint32_t> pointEdges;
+	// Set MapPoint vertices
+	for (int i = 0; i < cloudPoints.size(); i++) {
+		const SRef<CloudPoint> &mapPoint = cloudPoints[i];
+		g2o::VertexSBAPointXYZ* vPoint = new g2o::VertexSBAPointXYZ();
+		vPoint->setEstimate(Eigen::Matrix<double, 3, 1>(mapPoint->getX(), mapPoint->getY(), mapPoint->getZ()));
+		const int id = maxKfId + 1 + mapPoint->getId();
+		vPoint->setId(id);
+		vPoint->setMarginalized(true);
+		optimizer.addVertex(vPoint);
+
+		const std::map<unsigned int, unsigned int> &kpVisibility = mapPoint->getVisibility();
+
+		//Set edges between each cloud point and keyframes
+		for (auto const &it : kpVisibility) {
+			int idxKf = it.first;
+			int idxKp = it.second;
+			SRef<Keyframe> kf;
+			m_keyframesManager->getKeyframe(idxKf, kf);
+			const Keypoint &kp = kf->getKeypoints()[idxKp];
+			Eigen::Matrix<double, 2, 1> obs;
+			obs << kp.getX(), kp.getY();
+
+			g2o::EdgeSE3ProjectXYZ* e = new g2o::EdgeSE3ProjectXYZ();
+
+			e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id)));
+			e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(idxKf)));
+			e->setMeasurement(obs);
+			e->setInformation(Eigen::Matrix2d::Identity());
+
+			//g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+			//e->setRobustKernel(rk);
+			//rk->setDelta(thHuber2D);
+
+			e->fx = K(0, 0);
+			e->fy = K(1, 1);
+			e->cx = K(0, 2);
+			e->cy = K(1, 2);
+			optimizer.addEdge(e);
+			nbObservations++;
+			allEdges.push_back(e);
+			pointEdges.push_back(mapPoint->getId());
+		}
+	}
+
+	LOG_INFO("Nb keyframes: {}", keyframes.size());
+	LOG_INFO("Nb cloud points: {}", cloudPoints.size());
+	LOG_INFO("Nb observations: {}", nbObservations);
+
+	// Optimize!
+	optimizer.initializeOptimization();
+	optimizer.setVerbose(m_setVerbose);
+	optimizer.optimize(m_iterations);
+	// Recover optimized data	
+	//Keyframes
+	for (int i = 0; i < keyframes.size(); i++) {
+		const uint32_t &kfId = keyframes[i]->getId();
+		g2o::VertexSE3Expmap* vSE3 = static_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(kfId));
+		g2o::SE3Quat SE3quat = vSE3->estimate();
+		keyframes[i]->setPose(toSolarPose(SE3quat).inverse());
+	}
+
+	//Points
+	for (int i = 0; i < cloudPoints.size(); i++)
+	{
+		const SRef<CloudPoint> &mapPoint = cloudPoints[i];
+		const int id = maxKfId + 1 + mapPoint->getId();
+		g2o::VertexSBAPointXYZ* vPoint = static_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(id));
+		Eigen::Matrix<double, 3, 1> xyz = vPoint->estimate();
+		mapPoint->setX((float)xyz(0));
+		mapPoint->setY((float)xyz(1));
+		mapPoint->setZ((float)xyz(2));
+	}
+
+	//Update re-projection error of point cloud
+	std::map<uint32_t, std::vector<double>> projErrors;
+	for (int i = 0; i < allEdges.size(); i++) {
+		g2o::EdgeSE3ProjectXYZ* e = allEdges[i];
+		uint32_t cloudPoint_id = pointEdges[i];
+		projErrors[cloudPoint_id].push_back(std::sqrt(e->chi2()));
+	}
+	for (const auto &it : projErrors) {
+		SRef<CloudPoint> mapPoint;
+		m_pointCloudManager->getPoint(it.first, mapPoint);
+		mapPoint->setReprojError(std::accumulate(it.second.begin(), it.second.end(), 0.0) / it.second.size());
+	}
+	return optimizer.chi2() / nbObservations;
+}
+
 }
 }
 }
