@@ -59,7 +59,7 @@ int main(int argc, char ** argv) {
 	auto viewer3DPoints = xpcfComponentManager->resolve<display::I3DPointsViewer>();
 	LOG_INFO("Loaded components");
 	
-	std::string scene = "room15";
+    std::string scene = "room15";
     const std::string path_poses        = "../../SolARTestModuleG2OBundler/" + scene + "Bundle/" + scene + "Poses.txt";
     const std::string path_points3d     = "../../SolARTestModuleG2OBundler/" + scene + "Bundle/" + scene + "Pts3D.txt";;
     const std::string path_points2d     = "../../SolARTestModuleG2OBundler/" + scene + "Bundle/" + scene + "Pts2D.txt";
@@ -238,7 +238,7 @@ int main(int argc, char ** argv) {
 	LOG_INFO("Point cloud 1 before: \n{}", *refPointCloud[1]);
 
 	LOG_INFO("Run bundle adjustment");
-    double reproj_errorFinal = bundler->solve(intrinsic, distortion, selectedKeyframes);
+    double reproj_errorFinal = bundler->localBundleAdjustment(intrinsic, distortion, selectedKeyframes);
 	LOG_INFO("Reprojection error final: {}", reproj_errorFinal);
 
 	std::vector<Transform3Df> keyframePosesAfter;

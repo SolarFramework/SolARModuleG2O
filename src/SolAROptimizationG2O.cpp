@@ -85,7 +85,7 @@ Transform3Df toSolarPose(const g2o::SE3Quat &SE3)
 	return pose;
 }
 
-double SolAROptimizationG2O::solve(CamCalibration & K, CamDistortion & D, const std::vector<uint32_t>& selectKeyframes)
+double SolAROptimizationG2O::localBundleAdjustment(CamCalibration & K, CamDistortion & D, const std::vector<uint32_t>& selectKeyframes)
 {
 	// Local KeyFrames
 	std::set<unsigned int> idxLocalKeyFrames;
@@ -284,7 +284,7 @@ double SolAROptimizationG2O::optimizeSpanningTree(CamCalibration & K, CamDistort
 		m_pointCloudManager->getPoint(it, point);
 		cloudPoints.push_back(point);
 	}
-	
+
 	// Setup optimizer
 	g2o::SparseOptimizer optimizer;
 	auto linearSolver = std::make_unique<g2o::LinearSolverEigen<g2o::BlockSolver_6_3::PoseMatrixType>>();
@@ -338,9 +338,9 @@ double SolAROptimizationG2O::optimizeSpanningTree(CamCalibration & K, CamDistort
 			e->setMeasurement(obs);
 			e->setInformation(Eigen::Matrix2d::Identity());
 
-			//g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
-			//e->setRobustKernel(rk);
-			//rk->setDelta(thHuber2D);
+			g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+			e->setRobustKernel(rk);
+			rk->setDelta(thHuber2D);
 
 			e->fx = K(0, 0);
 			e->fy = K(1, 1);
@@ -353,9 +353,9 @@ double SolAROptimizationG2O::optimizeSpanningTree(CamCalibration & K, CamDistort
 		}
 	}
 
-	LOG_INFO("Nb keyframes: {}", keyframes.size());
-	LOG_INFO("Nb cloud points: {}", cloudPoints.size());
-	LOG_INFO("Nb observations: {}", nbObservations);
+	LOG_DEBUG("Nb keyframes: {}", keyframes.size());
+	LOG_DEBUG("Nb cloud points: {}", cloudPoints.size());
+	LOG_DEBUG("Nb observations: {}", nbObservations);
 
 	// Optimize!
 	optimizer.initializeOptimization();
@@ -395,6 +395,157 @@ double SolAROptimizationG2O::optimizeSpanningTree(CamCalibration & K, CamDistort
 		mapPoint->setReprojError(std::accumulate(it.second.begin(), it.second.end(), 0.0) / it.second.size());
 	}
 	return optimizer.chi2() / nbObservations;
+}
+
+double SolAROptimizationG2O::globalBundleAdjustment(CamCalibration & K, CamDistortion & D)
+{
+    // , const std::vector<uint32_t>& selectKeyframes
+
+    // Local KeyFrames
+    std::set<unsigned int> idxLocalKeyFrames;
+    /* insert all keyframes
+    for (auto it : selectKeyframes) {
+        idxLocalKeyFrames.insert(it);
+    }
+    */
+
+    // Local MapPoints seen in Local KeyFrames
+    std::set<uint32_t> idxLocalCloudPoints;
+    std::vector< SRef<Keyframe>> localKeyframes;
+    for (auto const &it_kf : idxLocalKeyFrames) {
+        SRef<Keyframe> localKeyframe;
+        m_keyframesManager->getKeyframe(it_kf, localKeyframe);
+        localKeyframes.push_back(localKeyframe);
+        const std::map<uint32_t, uint32_t>& mapPointVisibility = localKeyframe->getVisibility();
+        for (auto const &it_pc : mapPointVisibility) {
+            idxLocalCloudPoints.insert(it_pc.second);
+        }
+    }
+
+    // Fixed Keyframes. Keyframes that see Local MapPoints but that are not Local Keyframes
+    std::set<uint32_t> idxFixedKeyFrames;
+    std::vector<SRef<CloudPoint>> localCloudPoints;
+    for (auto const &index : idxLocalCloudPoints) {
+        SRef<CloudPoint> mapPoint;
+        m_pointCloudManager->getPoint(index, mapPoint);
+        localCloudPoints.push_back(mapPoint);
+        const std::map<uint32_t, uint32_t> &kpVisibility = mapPoint->getVisibility();
+        for (auto const &it : kpVisibility) {
+            if (idxLocalKeyFrames.find(it.first) == idxLocalKeyFrames.end())
+                idxFixedKeyFrames.insert(it.first);
+        }
+        if (idxFixedKeyFrames.size() >= m_nbMaxFixedKeyframes)
+            break;
+    }
+
+    LOG_DEBUG("Nb Local Keyframes: {}", idxLocalKeyFrames.size());
+    LOG_DEBUG("Nb Fixed Keyframes: {}", idxFixedKeyFrames.size());
+    LOG_DEBUG("Nb Local pointclos: {}", idxLocalCloudPoints.size());
+
+    // Setup optimizer
+    g2o::SparseOptimizer optimizer;
+    auto linearSolver = std::make_unique<g2o::LinearSolverEigen<g2o::BlockSolver_6_3::PoseMatrixType>>();
+
+    auto solver = new g2o::OptimizationAlgorithmLevenberg(std::make_unique<g2o::BlockSolver_6_3>(std::move(linearSolver)));
+    optimizer.setAlgorithm(solver);
+
+    // Set Local KeyFrame vertices
+    int maxKfId(0);
+    for (int i = 0; i < localKeyframes.size(); i++){
+        g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
+        vSE3->setEstimate(toSE3Quat(localKeyframes[i]->getPose().inverse()));
+        const uint32_t &kfId = localKeyframes[i]->getId();
+        vSE3->setId(kfId);
+        vSE3->setFixed(kfId == 0);
+        optimizer.addVertex(vSE3);
+        if (kfId > maxKfId)
+            maxKfId = kfId;
+    }
+
+    // Set Fixed KeyFrame vertices
+    for (auto const &it : idxFixedKeyFrames){
+        SRef<Keyframe> localFixedKeyframe;
+        m_keyframesManager->getKeyframe(it, localFixedKeyframe);
+        g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
+        vSE3->setEstimate(toSE3Quat(localFixedKeyframe->getPose().inverse()));
+        vSE3->setId(it);
+        vSE3->setFixed(true);
+        optimizer.addVertex(vSE3);
+        if (it > maxKfId)
+            maxKfId = it;
+    }
+
+    const float thHuber2D = sqrt(5.99);
+    int nbObservations(0);
+    // Set MapPoint vertices
+    for (int i = 0; i < localCloudPoints.size(); i++){
+        const SRef<CloudPoint> &mapPoint = localCloudPoints[i];
+        g2o::VertexSBAPointXYZ* vPoint = new g2o::VertexSBAPointXYZ();
+        vPoint->setEstimate(Eigen::Matrix<double, 3, 1>(mapPoint->getX(), mapPoint->getY(), mapPoint->getZ()));
+        const int id = maxKfId + 1 + mapPoint->getId();
+        vPoint->setId(id);
+        vPoint->setMarginalized(true);
+        optimizer.addVertex(vPoint);
+
+        const std::map<unsigned int, unsigned int> &kpVisibility = mapPoint->getVisibility();
+
+        //Set edges between each cloud point and keyframes
+        for (auto const &it : kpVisibility) {
+            int idxKf = it.first;
+            int idxKp = it.second;
+            if ((idxLocalKeyFrames.find(idxKf) == idxLocalKeyFrames.end()) && (idxFixedKeyFrames.find(idxKf) == idxFixedKeyFrames.end()))
+                continue;
+            SRef<Keyframe> kf;
+            m_keyframesManager->getKeyframe(idxKf, kf);
+            const Keypoint &kp = kf->getKeypoints()[idxKp];
+            Eigen::Matrix<double, 2, 1> obs;
+            obs << kp.getX(), kp.getY();
+
+            g2o::EdgeSE3ProjectXYZ* e = new g2o::EdgeSE3ProjectXYZ();
+
+            e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id)));
+            e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(idxKf)));
+            e->setMeasurement(obs);
+            e->setInformation(Eigen::Matrix2d::Identity());
+
+            g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+            e->setRobustKernel(rk);
+            rk->setDelta(thHuber2D);
+
+            e->fx = K(0, 0);
+            e->fy = K(1, 1);
+            e->cx = K(0, 2);
+            e->cy = K(1, 2);
+            optimizer.addEdge(e);
+            nbObservations++;
+        }
+    }
+
+    // Optimize!
+    optimizer.initializeOptimization();
+    optimizer.setVerbose(m_setVerbose);
+    optimizer.optimize(m_iterations);
+    // Recover optimized data
+    //Keyframes
+    for (int i = 0; i < localKeyframes.size(); i++){
+        const uint32_t &kfId = localKeyframes[i]->getId();
+        g2o::VertexSE3Expmap* vSE3 = static_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(kfId));
+        g2o::SE3Quat SE3quat = vSE3->estimate();
+        localKeyframes[i]->setPose(toSolarPose(SE3quat).inverse());
+    }
+
+    //Points
+    for (int i = 0; i < localCloudPoints.size(); i++)
+    {
+        const SRef<CloudPoint> &mapPoint = localCloudPoints[i];
+        const int id = maxKfId + 1 + mapPoint->getId();
+        g2o::VertexSBAPointXYZ* vPoint = static_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(id));
+        Eigen::Matrix<double, 3, 1> xyz = vPoint->estimate();
+        mapPoint->setX((float)xyz(0));
+        mapPoint->setY((float)xyz(1));
+        mapPoint->setZ((float)xyz(2));
+    }
+    return optimizer.chi2() / nbObservations;
 }
 
 }
