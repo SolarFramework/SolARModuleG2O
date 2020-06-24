@@ -45,6 +45,7 @@ SolAROptimizationG2O::SolAROptimizationG2O():ConfigurableBase(xpcf::toUUID<SolAR
     declareProperty("nbIterations", m_iterations);
     declareProperty("setVerbose", m_setVerbose);
     declareProperty("nbMaxFixedKeyframes", m_nbMaxFixedKeyframes);
+    declareProperty("errorOutlier", m_errorOutlier);
     LOG_DEBUG("SolAROptimizationG2O constructor");
 }
 
@@ -201,7 +202,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, CamDistortion 
 		}
 	}
 
-	const float thHuber2D = sqrt(5.99);
+	const float thHuber2D = m_errorOutlier;
 	int nbObservations(0);
 	std::vector<g2o::EdgeSE3ProjectXYZ*> allEdges;
 	std::vector<uint32_t> pointEdges;
@@ -258,7 +259,19 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, CamDistortion 
 	// Optimize!
 	optimizer.initializeOptimization();
 	optimizer.setVerbose(m_setVerbose);
-	optimizer.optimize(m_iterations);
+	optimizer.optimize(m_iterations / 2);
+
+	// Filter outliers
+	for (const auto &edge : allEdges) {
+		if (edge->chi2() > m_errorOutlier * m_errorOutlier){
+			edge->setLevel(1);
+		}
+		edge->setRobustKernel(0);
+	}
+	// Optimize again without the outliers
+	optimizer.initializeOptimization(0);
+	optimizer.optimize(m_iterations / 2);
+
 	// Recover optimized data
 	//Keyframes
 	for (int i = 0; i < keyframes.size(); i++) {

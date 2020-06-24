@@ -38,6 +38,7 @@
 			<property name="nbIterations" type="Integer" value="10"/>
 			<property name="setVerbose" type="Integer" value="1"/>
 			<property name="nbMaxFixedKeyframes" type="Integer" value="30"/>
+			<property name="errorOutlier" type="Float" value="4.0"/>
 		</configure>
 		<configure component="SolAR3DPointsViewerOpengl">
             <property name="title" type="string" value="Points Cloud - Green = origin, Red = optimized (Press esc to exit)"/>

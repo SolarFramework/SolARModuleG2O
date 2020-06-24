@@ -59,6 +59,7 @@ private:
 	int							m_iterations;
 	int							m_setVerbose;
 	int							m_nbMaxFixedKeyframes;
+	float						m_errorOutlier;
 	SRef<IPointCloudManager>	m_pointCloudManager;
 	SRef<IKeyframesManager>		m_keyframesManager;
 	SRef<ICovisibilityGraph>	m_covisibilityGraph;
