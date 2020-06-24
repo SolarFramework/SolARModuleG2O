@@ -103,8 +103,8 @@ int main(int argc, char ** argv) {
 	start = clock();
 	bool useSpanningTree = true;
 	// uncomment the line below to deactivate useSpanningTree
-	//useSpanningTree = false;
-	double reproj_errorFinal = bundler->bundleAdjustment(calibration, distortion, {}, useSpanningTree);
+	//bundler->bindTo<xpcf::IConfigurable>()->getProperty("useSpanningTree")->setIntegerValue(0);
+	double reproj_errorFinal = bundler->bundleAdjustment(calibration, distortion);
 	end = clock();
 	double duration = double(end - start) / CLOCKS_PER_SEC;
 	LOG_INFO("Execution time : {}", duration);

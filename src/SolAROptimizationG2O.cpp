@@ -46,6 +46,7 @@ SolAROptimizationG2O::SolAROptimizationG2O():ConfigurableBase(xpcf::toUUID<SolAR
     declareProperty("setVerbose", m_setVerbose);
     declareProperty("nbMaxFixedKeyframes", m_nbMaxFixedKeyframes);
     declareProperty("errorOutlier", m_errorOutlier);
+    declareProperty("useSpanningTree", m_useSpanningTree);
     LOG_DEBUG("SolAROptimizationG2O constructor");
 }
 
@@ -86,7 +87,7 @@ Transform3Df toSolarPose(const g2o::SE3Quat &SE3)
     return pose;
 }
 
-double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, CamDistortion & D, const std::vector<uint32_t>& selectKeyframes, const bool & useSpanningTree)
+double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, CamDistortion & D, const std::vector<uint32_t> & selectKeyframes)
 {
 	// get cloud points and keyframes to optimize
 	std::vector< SRef<Keyframe>> keyframes;
@@ -122,8 +123,8 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, CamDistortion 
 				break;
 		}
 	}		
-	else if (useSpanningTree) {
-		LOG_DEBUG("Global bundle adjustment based on spanning tree");
+	else if (m_useSpanningTree) {
+		LOG_INFO("Global bundle adjustment based on spanning tree");
 		// get all keyframes
 		m_keyframesManager->getAllKeyframes(keyframes);
 		for (const auto &kf : keyframes)
@@ -159,7 +160,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, CamDistortion 
 		}
 	}
 	else {
-		LOG_DEBUG("Global bundle adjustment");
+		LOG_INFO("Global bundle adjustment");
 		// get all keyframes
 		m_keyframesManager->getAllKeyframes(keyframes);
 		for (const auto &kf : keyframes)

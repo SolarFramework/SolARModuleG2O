@@ -51,15 +51,15 @@ public:
 	/// @param[in, out] K: camera calibration parameters responsible of 3D points generation.
 	/// @param[in, out] D: camera distorsion parameters responsible of 3D points generation
 	/// @param[in] selectKeyframes : selected views to bundle following a given strategies. If it is empty then take all keyframes into account to perform global bundle adjustment.
-	/// @param[in] useSpanningTree: in the case of the global bundle adjustment, if it true, the optimization is based on a maximal spanning tree.
 	/// @return the mean re-projection error after optimization.
-	double bundleAdjustment(CamCalibration & K, CamDistortion & D, const std::vector<uint32_t> & selectKeyframes, const bool & useSpanningTree = false) override;
+	double bundleAdjustment(CamCalibration & K, CamDistortion & D, const std::vector<uint32_t> & selectKeyframes = {}) override;
 
 private:
 	int							m_iterations;
 	int							m_setVerbose;
 	int							m_nbMaxFixedKeyframes;
-	float						m_errorOutlier;
+	float						m_errorOutlier = 3.f;
+	int							m_useSpanningTree = 0;
 	SRef<IPointCloudManager>	m_pointCloudManager;
 	SRef<IKeyframesManager>		m_keyframesManager;
 	SRef<ICovisibilityGraph>	m_covisibilityGraph;
