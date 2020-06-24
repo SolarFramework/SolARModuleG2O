@@ -43,7 +43,7 @@ int main(int argc, char ** argv) {
     boost::log::core::get()->set_logging_enabled(false);
 #endif
 
-	const std::string path_config = "SolAROptimizeSpanningTree_conf.xml";
+	const std::string path_config = "SolARTestModuleG2OGlobalBundleAdjustment_conf.xml";
 	SRef<xpcf::IComponentManager> xpcfComponentManager = xpcf::getComponentManagerInstance();
 	if (xpcfComponentManager->load(path_config.c_str()) != org::bcom::xpcf::_SUCCESS)
 	{
@@ -98,10 +98,13 @@ int main(int argc, char ** argv) {
 	LOG_INFO("Keyframe1 pose before: \n{}", keyframePosesBefore[1].matrix());
 	LOG_INFO("Point cloud 1 before: \n{}", *refPointCloud[1]);
 
-	LOG_INFO("Run global bundle adjustment on the spanning tree");
+	LOG_INFO("Run global bundle adjustment");
 	clock_t start, end;
 	start = clock();
-	double reproj_errorFinal = bundler->bundleAdjustment(calibration, distortion, {}, true);
+	bool useSpanningTree = true;
+	// uncomment the line below to deactivate useSpanningTree
+	//useSpanningTree = false;
+	double reproj_errorFinal = bundler->bundleAdjustment(calibration, distortion, {}, useSpanningTree);
 	end = clock();
 	double duration = double(end - start) / CLOCKS_PER_SEC;
 	LOG_INFO("Execution time : {}", duration);

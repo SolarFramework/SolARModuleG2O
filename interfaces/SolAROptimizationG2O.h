@@ -56,28 +56,6 @@ public:
 	double bundleAdjustment(CamCalibration & K, CamDistortion & D, const std::vector<uint32_t> & selectKeyframes, const bool & useSpanningTree = false) override;
 
 private:
-	/// @brief solve a non-linear problem related to local bundle adjustement statement expressed as:
-	/// minArg(pts3ds,intrinsics,extrinsics) = MIN_cam_i(MIN_3d_j(pts2d_j - reproje(pt3ds_j,intrinsics_i,extrinsics_i)),
-	/// @param[in, out] K: camera calibration parameters responsible of 3D points generation.
-	/// @param[in, out] D: camera distorsion parameters responsible of 3D points generation
-	/// @param[in] selectKeyframes : selected views to bundle following a given strategies (ex: poseGraph).
-	/// @return the mean re-projection error after {pts3d, intrinsic, extrinsic} correction.
-	double localBundleAdjustment(CamCalibration & K, CamDistortion & D, const std::vector<uint32_t> & selectKeyframes);
-
-	/// @brief solve a non-linear problem related to global bundle adjustement statement expressed as:
-	/// minArg(pts3ds,intrinsics,extrinsics) = MIN_cam_i(MIN_3d_j(pts2d_j - reproje(pt3ds_j,intrinsics_i,extrinsics_i)),
-	/// @param[in, out] K: camera calibration parameters responsible of 3D points generation.
-	/// @param[in, out] D: camera distorsion parameters responsible of 3D points generation
-	/// @return the mean re-projection error after {pts3d, intrinsic, extrinsic} correction.
-	double globalBundleAdjustment(CamCalibration & K, CamDistortion & D);
-
-	/// @brief Optimize global bundle adjustment based on a maximal spanning tree
-	/// @param[in, out] K: camera calibration parameters responsible of 3D points generation.
-	/// @param[in, out] D: camera distorsion parameters responsible of 3D points generation
-	/// @return the mean re-projection error.
-	double optimizeSpanningTree(CamCalibration & K, CamDistortion & D);
-
-private:
 	int							m_iterations;
 	int							m_setVerbose;
 	int							m_nbMaxFixedKeyframes;

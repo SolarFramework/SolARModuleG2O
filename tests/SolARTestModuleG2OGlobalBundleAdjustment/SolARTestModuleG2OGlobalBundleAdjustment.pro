@@ -3,7 +3,7 @@ QT       -= core gui
 CONFIG -= qt
 
 ## global defintions : target lib name, version
-TARGET = SolARTestOptimizeSpanningTree
+TARGET = SolARTestModuleG2OGlobalBundleAdjustment
 VERSION=0.8.1
 
 DEFINES += MYVERSION=$${VERSION}
@@ -62,7 +62,7 @@ win32 {
 }
 
 configfile.path = $${TARGETDEPLOYDIR}/
-configfile.files = $$files($${PWD}/SolAROptimizeSpanningTree_conf.xml)\
+configfile.files = $$files($${PWD}/SolARTestModuleG2OGlobalBundleAdjustment_conf.xml)\
 					$$files($${PWD}/camera_calibration.yml)
 INSTALLS += configfile
 
