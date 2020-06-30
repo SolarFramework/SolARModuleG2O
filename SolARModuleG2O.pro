@@ -42,7 +42,7 @@ INCLUDEPATH += interfaces/
 
 include (SolARModuleG2O.pri)
 
-unix {
+unix:!android {
     QMAKE_CXXFLAGS += -Wignored-qualifiers
 }
 
@@ -61,6 +61,12 @@ win32 {
     QMAKE_COMPILER_DEFINES += _WIN64
     QMAKE_CXXFLAGS += -wd4250 -wd4251 -wd4244 -wd4275
 }
+
+android {
+    QMAKE_LFLAGS += -nostdlib++
+    ANDROID_ABIS="arm64-v8a"
+}
+
 
 header_files.path = $${PROJECTDEPLOYDIR}/interfaces
 header_files.files = $$files($${PWD}/interfaces/*.h*)
