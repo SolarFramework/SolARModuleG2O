@@ -1,4 +1,3 @@
 SolARFramework|0.8.0|SolARFramework|SolARBuild@github|https://github.com/SolarFramework/SolarFramework/releases/download
-g2o|1.0.0|g2o|thirdParties@github|https://github.com/SolarFramework/binaries/releases/download
-
+g2o|master|g2o|conan-solar@conan|conan-solar
 
