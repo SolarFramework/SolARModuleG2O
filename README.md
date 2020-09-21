@@ -1,8 +1,6 @@
 # SolARModuleG2O
 
 [![License](https://img.shields.io/github/license/SolARFramework/SolARModuleG2O?style=flat-square&label=License)](https://www.apache.org/licenses/LICENSE-2.0)
-[![Build Status](http://argo.ci.b-com.com/buildStatus/icon?job=SolAR-Modules%2FSolARModuleG2O%2Fmaster&style=flat-square&subject=Master)](http://argo.ci.b-com.com/job/SolAR-Modules/job/SolARModuleG2O/job/master/)
-[![Build Status](http://argo.ci.b-com.com/buildStatus/icon?job=SolAR-Modules%2FSolARModuleG2O%2Fdevelop&style=flat-square&subject=Dev)](http://argo.ci.b-com.com/job/SolAR-Modules/job/SolARModuleG2O/job/develop/)
 
 **SolARModuleG2o** is a module to aggregates components dedicated to [bundle ajustement](https://en.wikipedia.org/wiki/Bundle_adjustment) optimization based on [g2o](https://github.com/RainerKuemmerle/g2o) library. g2o is licenced under [LGPL v3](https://www.gnu.org/licenses/lgpl-3.0.en.html).
 
