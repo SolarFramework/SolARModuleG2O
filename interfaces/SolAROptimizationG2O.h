@@ -55,11 +55,13 @@ public:
 	double bundleAdjustment(CamCalibration & K, CamDistortion & D, const std::vector<uint32_t> & selectKeyframes = {}) override;
 
 private:
-	int							m_iterations;
+	int							m_iterationsLocal = 10;
+	int							m_iterationsGlobal = 10;
 	int							m_setVerbose;
 	int							m_nbMaxFixedKeyframes;
 	float						m_errorOutlier = 3.f;
 	int							m_useSpanningTree = 0;
+	int							m_isRobust = 1;
 	SRef<IPointCloudManager>	m_pointCloudManager;
 	SRef<IKeyframesManager>		m_keyframesManager;
 	SRef<ICovisibilityGraph>	m_covisibilityGraph;
