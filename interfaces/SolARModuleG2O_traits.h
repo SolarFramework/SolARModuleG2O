@@ -22,7 +22,7 @@
 namespace SolAR {
 namespace MODULES {
 /**
- * @namespace SolAR::MODULES::G20
+ * @namespace SolAR::MODULES::G2O
  * @brief <B>Provides a bundle adjustment component based on G20 library: https://github.com/OpenSLAM-org/openslam_g2o</B>
  * <TT>UUID: 8f94a3c5-79ed-4851-9502-98033eae3a3b</TT>
  *
