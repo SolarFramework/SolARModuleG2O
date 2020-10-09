@@ -62,6 +62,8 @@ private:
 	float						m_errorOutlier = 3.f;
 	int							m_useSpanningTree = 0;
 	int							m_isRobust = 1;
+	int							m_fixedMap = 0;
+	int							m_fixedKeyframes = 0;
 	SRef<IPointCloudManager>	m_pointCloudManager;
 	SRef<IKeyframesManager>		m_keyframesManager;
 	SRef<ICovisibilityGraph>	m_covisibilityGraph;

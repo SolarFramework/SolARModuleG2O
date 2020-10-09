@@ -49,6 +49,8 @@ SolAROptimizationG2O::SolAROptimizationG2O():ConfigurableBase(xpcf::toUUID<SolAR
     declareProperty("errorOutlier", m_errorOutlier);
     declareProperty("useSpanningTree", m_useSpanningTree);
     declareProperty("isRobust", m_isRobust);
+	declareProperty("fixedMap", m_fixedMap);
+	declareProperty("fixedKeyframes", m_fixedKeyframes);
     LOG_DEBUG("SolAROptimizationG2O constructor");
 }
 
@@ -188,7 +190,10 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, CamDistortion 
 		vSE3->setEstimate(toSE3Quat(keyframes[i]->getPose().inverse()));
 		const uint32_t &kfId = keyframes[i]->getId();
 		vSE3->setId(kfId);
-		vSE3->setFixed(kfId == 0);
+		if (m_fixedKeyframes)
+			vSE3->setFixed(true);
+		else
+			vSE3->setFixed(kfId == 0);
 		optimizer.addVertex(vSE3);
 		if (kfId > maxKfId)
 			maxKfId = kfId;
@@ -221,6 +226,10 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, CamDistortion 
 		const int id = maxKfId + 1 + mapPoint->getId();
 		vPoint->setId(id);
 		vPoint->setMarginalized(true);
+		if (m_fixedMap)
+			vPoint->setFixed(true);
+		else
+			vPoint->setFixed(false);
 		optimizer.addVertex(vPoint);
 
 		const std::map<unsigned int, unsigned int> &kpVisibility = mapPoint->getVisibility();
