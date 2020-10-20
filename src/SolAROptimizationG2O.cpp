@@ -59,11 +59,12 @@ SolAROptimizationG2O::~SolAROptimizationG2O()
     LOG_DEBUG(" SolAROptimizationG2O destructor")
 }
 
-xpcf::XPCFErrorCode SolAROptimizationG2O::onConfigured()
+FrameworkReturnCode SolAROptimizationG2O::setMapper(const SRef<api::solver::map::IMapper>& map)
 {
-    LOG_DEBUG(" SolAROptimizationG2O onConfigured");
-
-    return xpcf::_SUCCESS;
+	map->getPointCloudManager(m_pointCloudManager);
+	map->getKeyframesManager(m_keyframesManager);
+	map->getCovisibilityGraph(m_covisibilityGraph);
+	return FrameworkReturnCode::_SUCCESS;
 }
 
 g2o::SE3Quat toSE3Quat(const Transform3Df &pose)

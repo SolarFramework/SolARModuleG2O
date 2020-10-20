@@ -41,10 +41,12 @@ class SOLARG2O_EXPORT_API SolAROptimizationG2O : public org::bcom::xpcf::Configu
 {
 public:
     SolAROptimizationG2O();
-    ~SolAROptimizationG2O();
+    ~SolAROptimizationG2O() override;
 
-    org::bcom::xpcf::XPCFErrorCode onConfigured() override final;
-    void unloadComponent () override final;
+	/// @brief set mapper reference to optimize
+	/// @param[in] map: the input map.
+	/// @return FrameworkReturnCode::_SUCCESS_ if the map is set, else FrameworkReturnCode::_ERROR.
+	FrameworkReturnCode setMapper(const SRef<api::solver::map::IMapper> &map) override;    
 
 	/// @brief solve a non-linear problem related to bundle adjustement statement expressed as:
 	/// minArg(pts3ds,intrinsics,extrinsics) = MIN_cam_i(MIN_3d_j(pts2d_j - reproje(pt3ds_j,intrinsics_i,extrinsics_i)),
@@ -53,6 +55,8 @@ public:
 	/// @param[in] selectKeyframes : selected views to bundle following a given strategies. If it is empty then take all keyframes into account to perform global bundle adjustment.
 	/// @return the mean re-projection error after optimization.
 	double bundleAdjustment(CamCalibration & K, CamDistortion & D, const std::vector<uint32_t> & selectKeyframes = {}) override;
+
+	void unloadComponent() override final;
 
 private:
 	int							m_iterationsLocal = 10;
