@@ -119,7 +119,8 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, CamDistortion 
 		// get ids of fixed keyframes			
 		for (auto const &index : idxLocalCloudPoints) {
 			SRef<CloudPoint> mapPoint;
-			m_pointCloudManager->getPoint(index, mapPoint);
+			if (m_pointCloudManager->getPoint(index, mapPoint) != FrameworkReturnCode::_SUCCESS)
+				continue;
 			cloudPoints.push_back(mapPoint);
 			const std::map<uint32_t, uint32_t> &kpVisibility = mapPoint->getVisibility();
 			for (auto const &it : kpVisibility) {
@@ -163,7 +164,8 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, CamDistortion 
 		}
 		for (const auto &it : idxCloudPoints) {
 			SRef<CloudPoint> point;
-			m_pointCloudManager->getPoint(it, point);
+			if (m_pointCloudManager->getPoint(it, point) != FrameworkReturnCode::_SUCCESS)
+				continue;
 			cloudPoints.push_back(point);
 		}
 	}
@@ -320,7 +322,8 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, CamDistortion 
 	}
 	for (const auto &it : projErrors) {
 		SRef<CloudPoint> mapPoint;
-		m_pointCloudManager->getPoint(it.first, mapPoint);
+		if (m_pointCloudManager->getPoint(it.first, mapPoint) != FrameworkReturnCode::_SUCCESS)
+			continue;
 		mapPoint->setReprojError(std::accumulate(it.second.begin(), it.second.end(), 0.0) / it.second.size());
 	}
 	return optimizer.chi2() / nbObservations;
