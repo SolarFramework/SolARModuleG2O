@@ -91,7 +91,7 @@ Transform3Df toSolarPose(const g2o::SE3Quat &SE3)
     return pose;
 }
 
-double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, CamDistortion & D, const std::vector<uint32_t> & selectKeyframes)
+double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused]] CamDistortion & D, const std::vector<uint32_t> & selectKeyframes)
 {
 	// get cloud points and keyframes to optimize
 	int iterations;
@@ -184,7 +184,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, CamDistortion 
 	optimizer.setAlgorithm(solver);
 
 	// Set keyFrame vertices
-	int maxKfId(0);
+    uint32_t maxKfId(0);
 	for (int i = 0; i < keyframes.size(); i++) {
 		g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
 		vSE3->setEstimate(toSE3Quat(keyframes[i]->getPose().inverse()));
