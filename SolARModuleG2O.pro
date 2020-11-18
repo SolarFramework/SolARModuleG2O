@@ -7,7 +7,7 @@ INSTALLSUBDIR = SolARBuild
 TARGET = SolARModuleG2O
 
 FRAMEWORK = $$TARGET
-VERSION=0.8.1
+VERSION=0.9.0
 
 DEFINES += MYVERSION=$${VERSION}
 DEFINES += TEMPLATE_LIBRARY
@@ -82,3 +82,6 @@ OTHER_FILES += \
 
 #NOTE : Must be placed at the end of the .pro
 include ($$shell_quote($$shell_path($${QMAKE_REMAKEN_RULES_ROOT}/remaken_install_target.pri)))) # Shell_quote & shell_path required for visual on windows
+
+DISTFILES += \
+    xpcf_SolARModuleG2O_registry.xml
