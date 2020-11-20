@@ -96,7 +96,7 @@ int main(int argc, char ** argv) {
 						float x, y;
 						ox >> x;
 						ox >> y;
-						points2D[j] = Keypoint(j, x, y, 0.0, 0.0, 0.0, 0.0, 0);
+                        points2D[j] = Keypoint(j, x, y, 0.0f, 0.0f, 0.0f, 0.0f);
 					}
 					SRef<Keyframe> keyframe = xpcf::utils::make_shared<Keyframe>();
 					keyframe->setKeypoints(points2D);
