@@ -19,6 +19,7 @@
 #include <g2o/core/block_solver.h>
 #include <g2o/core/optimization_algorithm_levenberg.h>
 #include <g2o/solvers/eigen/linear_solver_eigen.h>
+#include <g2o/solvers/dense/linear_solver_dense.h>
 #include <g2o/core/block_solver.h>
 #include <g2o/types/sba/types_six_dof_expmap.h>
 #include <g2o/types/sim3/types_seven_dof_expmap.h>
@@ -51,6 +52,7 @@ SolAROptimizationG2O::SolAROptimizationG2O():ConfigurableBase(xpcf::toUUID<SolAR
     declareProperty("isRobust", m_isRobust);
 	declareProperty("fixedMap", m_fixedMap);
 	declareProperty("fixedKeyframes", m_fixedKeyframes);
+	declareProperty("fixedScale", m_fixedScale);
     LOG_DEBUG("SolAROptimizationG2O constructor");
 }
 
@@ -327,6 +329,126 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused
 		mapPoint->setReprojError(std::accumulate(it.second.begin(), it.second.end(), 0.0) / it.second.size());
 	}
 	return optimizer.chi2() / nbObservations;
+}
+
+double SolAROptimizationG2O::optimizeSim3(CamCalibration & K1, CamCalibration & K2, const SRef<Keyframe>& keyframe1, const SRef<Keyframe>& keyframe2, const std::vector<DescriptorMatch>& matches, const std::vector<Point3Df> & pts3D1, const std::vector<Point3Df> & pts3D2, Transform3Df & pose)
+{
+	g2o::SparseOptimizer optimizer;
+	auto linearSolver = std::make_unique<g2o::LinearSolverDense<g2o::BlockSolverX::PoseMatrixType>>();
+	auto solver = new g2o::OptimizationAlgorithmLevenberg(std::make_unique<g2o::BlockSolverX>(std::move(linearSolver)));
+	optimizer.setAlgorithm(solver);
+	// Init vertex 0 for sim3
+	Eigen::Matrix3f scaleMatrix;
+	Eigen::Matrix3f rot;
+	Eigen::Vector3f translation;
+	float scale;
+	pose.computeScalingRotation(&scaleMatrix, &rot);
+	scale = scaleMatrix(0, 0);
+	translation = pose.translation() / scale;
+	g2o::Sim3 g2oS12(rot.cast<double>(), translation.cast<double>(), static_cast<double>(scale));
+
+	g2o::VertexSim3Expmap * vSim3 = new g2o::VertexSim3Expmap();
+	vSim3->_fix_scale = (bool)m_fixedScale;
+	vSim3->setEstimate(g2oS12);
+	vSim3->setId(0);
+	vSim3->setFixed(false);
+	vSim3->_principle_point1[0] = K1(0, 2);
+	vSim3->_principle_point1[1] = K1(1, 2);
+	vSim3->_focal_length1[0] = K1(0, 0);
+	vSim3->_focal_length1[1] = K1(1, 1);
+	vSim3->_principle_point2[0] = K2(0, 2);
+	vSim3->_principle_point2[1] = K2(1, 2);
+	vSim3->_focal_length2[0] = K2(0, 0);
+	vSim3->_focal_length2[1] = K2(1, 1);
+	optimizer.addVertex(vSim3);
+
+	// Set MapPoint vertices
+	const int N = pts3D1.size();
+	std::vector<g2o::EdgeSim3ProjectXYZ*> vpEdges12;
+	std::vector<g2o::EdgeInverseSim3ProjectXYZ*> vpEdges21;
+	std::vector<size_t> vnIndexEdge;
+	vnIndexEdge.reserve(2 * N);
+	vpEdges12.reserve(2 * N);
+	vpEdges21.reserve(2 * N);	
+
+	Transform3Df pose1 = keyframe1->getPose().inverse(); // camera ==> world
+	Transform3Df pose2 = keyframe2->getPose().inverse();  // to work in the camera coordinate system !
+
+	const float deltaHuber = m_errorOutlier;
+	for (int i = 0; i < N; i++) {
+		const int id1 = 2 * i + 1;
+		const int id2 = 2 * (i + 1);
+		g2o::VertexSBAPointXYZ* vPoint1 = new g2o::VertexSBAPointXYZ();
+		Eigen::Matrix<double, 3, 1> v1;
+		v1 << pts3D1[i].getX(), pts3D1[i].getY(), pts3D1[i].getZ();
+		vPoint1->setEstimate(v1);
+		vPoint1->setId(id1);
+		vPoint1->setFixed(true);
+		optimizer.addVertex(vPoint1);
+
+		/// use project function to see the result  of the reproj error !
+		g2o::VertexSBAPointXYZ* vPoint2 = new g2o::VertexSBAPointXYZ();
+		Eigen::Matrix<double, 3, 1> v2;
+		v2 << pts3D2[i].getX(), pts3D2[i].getY(), pts3D2[i].getZ();
+		vPoint2->setEstimate(v2);
+		vPoint2->setId(id2);
+		vPoint2->setFixed(true);
+		optimizer.addVertex(vPoint2);
+
+		const Keypoint& kp1 = keyframe1->getKeypoint(matches[i].getIndexInDescriptorA());
+		const Keypoint& kp2 = keyframe2->getKeypoint(matches[i].getIndexInDescriptorB());
+
+		// Set edge x1 = S12*X2		
+		Eigen::Matrix<double, 2, 1> obs1;
+		obs1 << kp1.getX(), kp1.getY();
+		g2o::EdgeSim3ProjectXYZ* e12 = new g2o::EdgeSim3ProjectXYZ();
+		e12->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id2)));
+		e12->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(0)));
+		e12->setMeasurement(obs1);
+		e12->setInformation(Eigen::Matrix2d::Identity());
+		if (m_isRobust) {
+			g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+			e12->setRobustKernel(rk);
+			rk->setDelta(deltaHuber);
+		}
+		optimizer.addEdge(e12);
+
+		// Set edge x2 = S21*X1
+		Eigen::Matrix<double, 2, 1> obs2;
+		obs2 << kp2.getX(), kp2.getY();
+		g2o::EdgeInverseSim3ProjectXYZ* e21 = new g2o::EdgeInverseSim3ProjectXYZ();
+		e21->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id1)));
+		e21->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(0)));
+		e21->setMeasurement(obs2);
+		e21->setInformation(Eigen::Matrix2d::Identity());
+		if (m_isRobust) {
+			g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+			e12->setRobustKernel(rk);
+			rk->setDelta(deltaHuber);
+		}
+		optimizer.addEdge(e21);
+
+		vpEdges12.push_back(e12);
+		vpEdges21.push_back(e21);
+		vnIndexEdge.push_back(i);
+
+	}
+
+	optimizer.initializeOptimization();
+	optimizer.setVerbose(m_setVerbose);
+	optimizer.optimize(10);
+
+	g2o::VertexSim3Expmap* vSim3_recov = static_cast<g2o::VertexSim3Expmap*>(optimizer.vertex(0));
+	g2oS12 = vSim3_recov->estimate();
+/*	LOG_INFO("Optimized sim3 (R):  {}", g2oS12.rotation().matrix());
+	LOG_INFO("Optimized sim3 (t):  {}", g2oS12.translation().matrix());
+	LOG_INFO("Optimized sim3 (s):  {}", vSim3_recov->estimate().scale());*/	
+
+	// optimized pose
+	pose.linear() = static_cast<float>(g2oS12.scale()) * g2oS12.rotation().toRotationMatrix().cast<float>();
+	pose.translation() = static_cast<float>(g2oS12.scale()) * g2oS12.translation().cast<float>();
+
+	return optimizer.chi2();
 }
 
 }
