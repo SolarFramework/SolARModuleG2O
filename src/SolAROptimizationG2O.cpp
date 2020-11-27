@@ -43,6 +43,7 @@ SolAROptimizationG2O::SolAROptimizationG2O():ConfigurableBase(xpcf::toUUID<SolAR
     declareInjectable<IPointCloudManager>(m_pointCloudManager);
     declareInjectable<IKeyframesManager>(m_keyframesManager);
     declareInjectable<ICovisibilityGraph>(m_covisibilityGraph);
+    declareInjectable<api::geom::I3DTransform>(m_transform3D);
     declareProperty("nbIterationsLocal", m_iterationsLocal);
     declareProperty("nbIterationsGlobal", m_iterationsGlobal);
     declareProperty("setVerbose", m_setVerbose);
@@ -338,13 +339,14 @@ double SolAROptimizationG2O::optimizeSim3(CamCalibration & K1, CamCalibration & 
 	auto solver = new g2o::OptimizationAlgorithmLevenberg(std::make_unique<g2o::BlockSolverX>(std::move(linearSolver)));
 	optimizer.setAlgorithm(solver);
 	// Init vertex 0 for sim3
+	Transform3Df sim3_K1_k2 = keyframe1->getPose().inverse() * pose * keyframe2->getPose();
 	Eigen::Matrix3f scaleMatrix;
 	Eigen::Matrix3f rot;
 	Eigen::Vector3f translation;
 	float scale;
-	pose.computeScalingRotation(&scaleMatrix, &rot);
+	sim3_K1_k2.computeScalingRotation(&scaleMatrix, &rot);
 	scale = scaleMatrix(0, 0);
-	translation = pose.translation() / scale;
+	translation = sim3_K1_k2.translation() / scale;
 	g2o::Sim3 g2oS12(rot.cast<double>(), translation.cast<double>(), static_cast<double>(scale));
 
 	g2o::VertexSim3Expmap * vSim3 = new g2o::VertexSim3Expmap();
@@ -371,16 +373,20 @@ double SolAROptimizationG2O::optimizeSim3(CamCalibration & K1, CamCalibration & 
 	vpEdges12.reserve(2 * N);
 	vpEdges21.reserve(2 * N);	
 
-	Transform3Df pose1 = keyframe1->getPose().inverse(); // camera ==> world
-	Transform3Df pose2 = keyframe2->getPose().inverse();  // to work in the camera coordinate system !
+	Transform3Df pose1 = keyframe1->getPose().inverse(); 
+	Transform3Df pose2 = keyframe2->getPose().inverse(); 
+	std::vector<Point3Df> pts3D1Transformed, pts3D2Transformed;
+	m_transform3D->transform(pts3D1, pose1, pts3D1Transformed);
+	m_transform3D->transform(pts3D2, pose2, pts3D2Transformed);
 
 	const float deltaHuber = m_errorOutlier;
 	for (int i = 0; i < N; i++) {
 		const int id1 = 2 * i + 1;
 		const int id2 = 2 * (i + 1);
+
 		g2o::VertexSBAPointXYZ* vPoint1 = new g2o::VertexSBAPointXYZ();
 		Eigen::Matrix<double, 3, 1> v1;
-		v1 << pts3D1[i].getX(), pts3D1[i].getY(), pts3D1[i].getZ();
+		v1 << pts3D1Transformed[i].getX(), pts3D1Transformed[i].getY(), pts3D1Transformed[i].getZ();
 		vPoint1->setEstimate(v1);
 		vPoint1->setId(id1);
 		vPoint1->setFixed(true);
@@ -389,7 +395,7 @@ double SolAROptimizationG2O::optimizeSim3(CamCalibration & K1, CamCalibration & 
 		/// use project function to see the result  of the reproj error !
 		g2o::VertexSBAPointXYZ* vPoint2 = new g2o::VertexSBAPointXYZ();
 		Eigen::Matrix<double, 3, 1> v2;
-		v2 << pts3D2[i].getX(), pts3D2[i].getY(), pts3D2[i].getZ();
+		v2 << pts3D2Transformed[i].getX(), pts3D2Transformed[i].getY(), pts3D2Transformed[i].getZ();
 		vPoint2->setEstimate(v2);
 		vPoint2->setId(id2);
 		vPoint2->setFixed(true);
@@ -447,6 +453,8 @@ double SolAROptimizationG2O::optimizeSim3(CamCalibration & K1, CamCalibration & 
 	// optimized pose
 	pose.linear() = static_cast<float>(g2oS12.scale()) * g2oS12.rotation().toRotationMatrix().cast<float>();
 	pose.translation() = static_cast<float>(g2oS12.scale()) * g2oS12.translation().cast<float>();
+
+	pose = keyframe1->getPose() * pose * keyframe2->getPose().inverse();
 
 	return optimizer.chi2();
 }

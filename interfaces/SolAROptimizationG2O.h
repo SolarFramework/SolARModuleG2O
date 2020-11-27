@@ -22,6 +22,7 @@
 #include "api/storage/ICovisibilityGraph.h"
 #include "api/storage/IKeyframesManager.h"
 #include "api/storage/IPointCloudManager.h"
+#include "api/geom/I3DTransform.h"
 
 namespace SolAR {
 using namespace datastructure;
@@ -91,6 +92,7 @@ private:
 	SRef<IPointCloudManager>	m_pointCloudManager;
 	SRef<IKeyframesManager>		m_keyframesManager;
 	SRef<ICovisibilityGraph>	m_covisibilityGraph;
+	SRef<api::geom::I3DTransform>m_transform3D;
 };
 
 }
