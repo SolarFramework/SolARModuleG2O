@@ -95,8 +95,7 @@ Transform3Df toSolarPose(const g2o::SE3Quat &SE3)
     return pose;
 }
 
-double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused]] CamDistortion & D, const std::vector<uint32_t> & selectKeyframes)
-{
+double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused]] CamDistortion & D, const std::vector<uint32_t> & selectKeyframes){
 	// get cloud points and keyframes to optimize
 	int iterations;
 	std::vector< SRef<Keyframe>> keyframes;
@@ -174,7 +173,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused
 	}
 	else {
 		iterations = m_iterationsGlobal;
-		LOG_INFO("Global bundle adjustment");
+		LOG_INFO("Global bundle adjustment with no weithing");
 		// get all keyframes
 		m_keyframesManager->getAllKeyframes(keyframes);
 		for (const auto &kf : keyframes)
@@ -252,13 +251,16 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused
 			Eigen::Matrix<double, 2, 1> obs;
 			obs << kp.getX(), kp.getY();
 
+
+
 			g2o::EdgeSE3ProjectXYZ* e = new g2o::EdgeSE3ProjectXYZ();
 
 			e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id)));
 			e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(idxKf)));
 			e->setMeasurement(obs);
+			const float edgeWeight = kp.getResponse();
+//			e->setInformation(Eigen::Matrix2d::Identity() * edgeWeight);
 			e->setInformation(Eigen::Matrix2d::Identity());
-
 			if (m_isRobust) {
 				g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
 				e->setRobustKernel(rk);
@@ -269,6 +271,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused
 			e->fy = K(1, 1);
 			e->cx = K(0, 2);
 			e->cy = K(1, 2);
+
 			optimizer.addEdge(e);
 			nbObservations++;
 			allEdges.push_back(e);
@@ -295,7 +298,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused
 	// Optimize again without the outliers
 	optimizer.initializeOptimization(0);
 	optimizer.optimize(iterations / 2);
-
+	
 	// Recover optimized data
 	//Keyframes
 	for (int i = 0; i < keyframes.size(); i++) {
