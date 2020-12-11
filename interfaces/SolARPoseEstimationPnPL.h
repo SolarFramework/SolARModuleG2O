@@ -69,7 +69,7 @@ public:
 									const std::vector<Edge2Df> & imageLines,
 									const std::vector<Edge3Df> & worldLines,
 									Transform3Df & pose,
-									const Transform3Df initialPose = Transform3Df::Identity()) override;
+									const Transform3Df & initialPose = Transform3Df::Identity()) override;
 
 	/// @brief Estimates camera pose from a set of 2D image points and 2D lines and their corresponding 3D world points and lines,
 	/// and performing RANSAC estimation iteratively to deduce inliers.
@@ -96,7 +96,7 @@ public:
 																std::vector<bool> & pointInliers,
 																std::vector<bool> & lineInliers,
 																Transform3Df & pose,
-																const Transform3Df initialPose = Transform3Df::Identity()) override;
+																const Transform3Df & initialPose = Transform3Df::Identity()) override;
 
 private:
 	g2o::SE3Quat toSE3Quat(const Transform3Df & pose);

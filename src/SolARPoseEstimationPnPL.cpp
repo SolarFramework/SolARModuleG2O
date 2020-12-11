@@ -212,7 +212,7 @@ FrameworkReturnCode SolARPoseEstimationPnPL::estimate(	const std::vector<Point2D
 														const std::vector<Edge2Df> & imageLines,
 														const std::vector<Edge3Df> & worldLines,
 														Transform3Df & pose,
-														const Transform3Df initialPose)
+														const Transform3Df & initialPose)
 {
 	unsigned nbPoints = worldPoints.size();
 	unsigned nbLines = worldLines.size();
@@ -315,7 +315,7 @@ FrameworkReturnCode SolARPoseEstimationPnPL::estimateRansac(const std::vector<Po
 															std::vector<bool>& pointInliers,
 															std::vector<bool>& lineInliers,
 															Transform3Df & pose,
-															const Transform3Df initialPose)
+															const Transform3Df & initialPose)
 {
 	// RANSAC params
 	int iterationsCount = 10;
