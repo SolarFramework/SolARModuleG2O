@@ -214,8 +214,8 @@ FrameworkReturnCode SolARPoseEstimationPnPL::estimate(	const std::vector<Point2D
 														Transform3Df & pose,
 														const Transform3Df initialPose)
 {
-	int nbPoints = worldPoints.size();
-	int nbLines = worldLines.size();
+	unsigned nbPoints = worldPoints.size();
+	unsigned nbLines = worldLines.size();
 
 	// Setup optimizer
 	auto linearSolver = std::make_unique<g2o::LinearSolverEigen<g2o::BlockSolver_6_3::PoseMatrixType>>();
