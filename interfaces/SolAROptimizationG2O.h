@@ -24,8 +24,6 @@
 #include "api/storage/IPointCloudManager.h"
 
 namespace SolAR {
-using namespace datastructure;
-using namespace api::storage;
 namespace MODULES {
 namespace G2O {
 
@@ -54,7 +52,7 @@ public:
 	/// @param[in, out] D: camera distorsion parameters responsible of 3D points generation
 	/// @param[in] selectKeyframes : selected views to bundle following a given strategies. If it is empty then take all keyframes into account to perform global bundle adjustment.
 	/// @return the mean re-projection error after optimization.
-	double bundleAdjustment(CamCalibration & K, CamDistortion & D, const std::vector<uint32_t> & selectKeyframes = {}) override;
+	double bundleAdjustment(datastructure::CamCalibration & K, datastructure::CamDistortion & D, const std::vector<uint32_t> & selectKeyframes = {}) override;
 
 	void unloadComponent() override final;
 
@@ -68,9 +66,9 @@ private:
 	int							m_isRobust = 1;
 	int							m_fixedMap = 0;
 	int							m_fixedKeyframes = 0;
-	SRef<IPointCloudManager>	m_pointCloudManager;
-	SRef<IKeyframesManager>		m_keyframesManager;
-	SRef<ICovisibilityGraph>	m_covisibilityGraph;
+	SRef<api::storage::IPointCloudManager>	m_pointCloudManager;
+	SRef<api::storage::IKeyframesManager>	m_keyframesManager;
+	SRef<api::storage::ICovisibilityGraph>	m_covisibilityGraph;
 };
 
 }

@@ -33,6 +33,7 @@ XPCF_DEFINE_FACTORY_CREATE_INSTANCE(SolAR::MODULES::G2O::SolAROptimizationG2O)
 
 namespace SolAR {
 using namespace datastructure;
+using namespace api::storage;
 namespace MODULES {
 namespace G2O {
 
