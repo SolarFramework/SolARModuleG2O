@@ -46,9 +46,11 @@ SolAROptimizationG2O::SolAROptimizationG2O():ConfigurableBase(xpcf::toUUID<SolAR
     declareInjectable<api::geom::I3DTransform>(m_transform3D);
     declareProperty("nbIterationsLocal", m_iterationsLocal);
     declareProperty("nbIterationsGlobal", m_iterationsGlobal);
+	declareProperty("nbIterationsSim3", m_iterationsSim3);
     declareProperty("setVerbose", m_setVerbose);
     declareProperty("nbMaxFixedKeyframes", m_nbMaxFixedKeyframes);
     declareProperty("errorOutlier", m_errorOutlier);
+	declareProperty("errorSim3", m_errorSim3);
     declareProperty("useSpanningTree", m_useSpanningTree);
     declareProperty("isRobust", m_isRobust);
 	declareProperty("fixedMap", m_fixedMap);
@@ -443,15 +445,39 @@ double SolAROptimizationG2O::optimizeSim3(CamCalibration & K1, CamCalibration & 
 
 	}
 
+	std::cout << "		-> number of iterations sim3: " << m_iterationsSim3 << std::endl;
+	std::cout << "		-> error threshold sim3: " << m_errorSim3 << std::endl;
+	const int sim3MinInliers   = 10;
 	optimizer.initializeOptimization();
 	optimizer.setVerbose(m_setVerbose);
-	optimizer.optimize(10);
+	// set number of iterations as argument
+	optimizer.optimize(m_iterationsSim3);
+	int sim3Inliers = vpEdges12.size();
+	for (size_t i = 0; i < vpEdges12.size(); i++){
+		g2o::EdgeSim3ProjectXYZ* e12 = vpEdges12[i];
+		g2o::EdgeInverseSim3ProjectXYZ* e21 = vpEdges21[i];
+		if (!e12 || !e21)
+			continue;
+		if (std::sqrt(e12->chi2()) > m_errorSim3){
+			size_t idx = vnIndexEdge[i];
+			optimizer.removeEdge(e12);
+			optimizer.removeEdge(e21);
+			vpEdges12[i] = static_cast<g2o::EdgeSim3ProjectXYZ*>(NULL);
+			vpEdges21[i] = static_cast<g2o::EdgeInverseSim3ProjectXYZ*>(NULL);
+			sim3Inliers--;
+		}
+	}
 
+	if (sim3Inliers > sim3MinInliers) {
+		LOG_INFO("Number of Sim3 inliers {}\n: ", sim3Inliers);
+		LOG_INFO("Inliers-based Sim3 optimization\n: ");
+		optimizer.initializeOptimization();
+		optimizer.setVerbose(m_setVerbose);
+		// set number of iterations as argument
+		optimizer.optimize(m_iterationsSim3/2);
+	}
 	g2o::VertexSim3Expmap* vSim3_recov = static_cast<g2o::VertexSim3Expmap*>(optimizer.vertex(0));
 	g2oS12 = vSim3_recov->estimate();
-/*	LOG_INFO("Optimized sim3 (R):  {}", g2oS12.rotation().matrix());
-	LOG_INFO("Optimized sim3 (t):  {}", g2oS12.translation().matrix());
-	LOG_INFO("Optimized sim3 (s):  {}", vSim3_recov->estimate().scale());*/	
 
 	// optimized pose
 	pose.linear() = static_cast<float>(g2oS12.scale()) * g2oS12.rotation().toRotationMatrix().cast<float>();
