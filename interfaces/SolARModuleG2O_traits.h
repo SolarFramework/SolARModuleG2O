@@ -29,6 +29,7 @@ namespace MODULES {
  */
 namespace G2O {
 class SolAROptimizationG2O;
+class SolARPoseEstimationPnPL;
 }
 }
 }
@@ -37,5 +38,11 @@ XPCF_DEFINE_COMPONENT_TRAITS(SolAR::MODULES::G2O::SolAROptimizationG2O,
                              "870d89ba-bb5f-460a-a817-1fcb6473df70",
                              "SolAROptimizationG2O",
                              "Bundle adjustment optimization")
+
+XPCF_DEFINE_COMPONENT_TRAITS(SolAR::MODULES::G2O::SolARPoseEstimationPnPL,
+							 "b76fe9a6-af2b-4778-a121-b54a41565a70",
+							 "SolARPoseEstimationPnPL",
+							 "Pose Estimation using Perspective-n-PointLine")
+
 
 #endif // SOLARMODULEG2O_TRAITS_H

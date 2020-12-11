@@ -17,6 +17,7 @@
 #include "SolARModuleG2O_traits.h"
 
 #include "SolAROptimizationG2O.h"
+#include "SolARPoseEstimationPnPL.h"
 
 namespace xpcf=org::bcom::xpcf;
 
@@ -26,10 +27,15 @@ extern "C" XPCF_MODULEHOOKS_API xpcf::XPCFErrorCode XPCF_getComponent(const boos
 {
     xpcf::XPCFErrorCode errCode = xpcf::XPCFErrorCode::_FAIL;
     errCode = xpcf::tryCreateComponent<SolAR::MODULES::G2O::SolAROptimizationG2O>(componentUUID,interfaceRef);
+	if (errCode != xpcf::XPCFErrorCode::_SUCCESS)
+	{
+		errCode = xpcf::tryCreateComponent<SolAR::MODULES::G2O::SolARPoseEstimationPnPL>(componentUUID, interfaceRef);
+	}
 
     return errCode;
 }
 
 XPCF_BEGIN_COMPONENTS_DECLARATION
 XPCF_ADD_COMPONENT(SolAR::MODULES::G2O::SolAROptimizationG2O)
+XPCF_ADD_COMPONENT(SolAR::MODULES::G2O::SolARPoseEstimationPnPL)
 XPCF_END_COMPONENTS_DECLARATION

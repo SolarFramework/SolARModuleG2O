@@ -5,7 +5,6 @@ CONFIG -= qt
 ## global defintions : target lib name, version
 INSTALLSUBDIR = SolARBuild
 TARGET = SolARModuleG2O
-
 FRAMEWORK = $$TARGET
 VERSION=0.9.2
 
