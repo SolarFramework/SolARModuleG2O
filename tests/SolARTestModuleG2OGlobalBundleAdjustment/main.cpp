@@ -52,10 +52,10 @@ int main(int argc, char ** argv) {
 	}
 	
 	auto camera = xpcfComponentManager->resolve<input::devices::ICamera>();
-	auto pointCloudManager = xpcfComponentManager->resolve<IPointCloudManager>();
-	auto keyframesManager = xpcfComponentManager->resolve<IKeyframesManager>();
-	auto covisibilityGraph = xpcfComponentManager->resolve<ICovisibilityGraph>();
-	auto keyframeRetriever = xpcfComponentManager->resolve<IKeyframeRetriever>();
+    auto pointCloudManager = xpcfComponentManager->resolve<storage::IPointCloudManager>();
+    auto keyframesManager = xpcfComponentManager->resolve<storage::IKeyframesManager>();
+    auto covisibilityGraph = xpcfComponentManager->resolve<storage::ICovisibilityGraph>();
+    auto keyframeRetriever = xpcfComponentManager->resolve<reloc::IKeyframeRetriever>();
 	auto mapper = xpcfComponentManager->resolve<solver::map::IMapper>();
 	auto bundler = xpcfComponentManager->resolve<api::solver::map::IBundler>();
 	auto viewer3DPoints = xpcfComponentManager->resolve<display::I3DPointsViewer>();
