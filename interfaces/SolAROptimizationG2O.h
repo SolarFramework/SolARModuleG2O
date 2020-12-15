@@ -44,7 +44,7 @@ public:
 	/// @brief set mapper reference to optimize
 	/// @param[in] map: the input map.
 	/// @return FrameworkReturnCode::_SUCCESS_ if the map is set, else FrameworkReturnCode::_ERROR.
-	FrameworkReturnCode setMapper(const SRef<api::solver::map::IMapper> &map) override;    
+    FrameworkReturnCode setMapper(const SRef<api::solver::map::IMapper> map) override;
 
 	/// @brief solve a non-linear problem related to bundle adjustement statement expressed as:
 	/// minArg(pts3ds,intrinsics,extrinsics) = MIN_cam_i(MIN_3d_j(pts2d_j - reproje(pt3ds_j,intrinsics_i,extrinsics_i)),

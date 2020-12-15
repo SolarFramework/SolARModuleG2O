@@ -60,7 +60,7 @@ SolAROptimizationG2O::~SolAROptimizationG2O()
     LOG_DEBUG(" SolAROptimizationG2O destructor")
 }
 
-FrameworkReturnCode SolAROptimizationG2O::setMapper(const SRef<api::solver::map::IMapper>& map)
+FrameworkReturnCode SolAROptimizationG2O::setMapper(const SRef<api::solver::map::IMapper> map)
 {
 	map->getPointCloudManager(m_pointCloudManager);
 	map->getKeyframesManager(m_keyframesManager);
