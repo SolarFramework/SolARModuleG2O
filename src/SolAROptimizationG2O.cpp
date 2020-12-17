@@ -109,7 +109,8 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused
 		std::set<uint32_t> idxLocalCloudPoints;
 		for (auto const &it_kf : selectKeyframes) {
 			SRef<Keyframe> keyframe;
-			m_keyframesManager->getKeyframe(it_kf, keyframe);
+			if (m_keyframesManager->getKeyframe(it_kf, keyframe) != FrameworkReturnCode::_SUCCESS)
+				continue;
 			keyframes.push_back(keyframe);
 			const std::map<uint32_t, uint32_t>& mapPointVisibility = keyframe->getVisibility();
 			for (auto const &it_pc : mapPointVisibility) {
@@ -151,8 +152,10 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused
 		std::set<uint32_t> idxCloudPoints;
 		for (const auto &edge : edgesSpanningTree) {
 			SRef<Keyframe> kf1, kf2;
-			m_keyframesManager->getKeyframe(std::get<0>(edge), kf1);
-			m_keyframesManager->getKeyframe(std::get<1>(edge), kf2);
+			if (m_keyframesManager->getKeyframe(std::get<0>(edge), kf1) != FrameworkReturnCode::_SUCCESS)
+				continue;
+			if (m_keyframesManager->getKeyframe(std::get<1>(edge), kf2) != FrameworkReturnCode::_SUCCESS)
+				continue;
 			std::map<uint32_t, uint32_t> kf1_visibilites = kf1->getVisibility();
 			std::map<uint32_t, uint32_t> kf2_visibilites = kf2->getVisibility();
 			std::map<uint32_t, int> countNbSeenCP;
@@ -209,7 +212,8 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused
 	if (selectKeyframes.size() > 0) {		
 		for (auto const &it : idxFixedKeyFrames) {
 			SRef<Keyframe> localFixedKeyframe;
-			m_keyframesManager->getKeyframe(it, localFixedKeyframe);
+			if (m_keyframesManager->getKeyframe(it, localFixedKeyframe) != FrameworkReturnCode::_SUCCESS)
+				continue;
 			g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
 			vSE3->setEstimate(toSE3Quat(localFixedKeyframe->getPose().inverse()));
 			vSE3->setId(it);
@@ -247,7 +251,8 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused
 			if ((idxKeyFrames.find(idxKf) == idxKeyFrames.end()) && (idxFixedKeyFrames.find(idxKf) == idxFixedKeyFrames.end()))
 				continue;
 			SRef<Keyframe> kf;
-			m_keyframesManager->getKeyframe(idxKf, kf);
+			if (m_keyframesManager->getKeyframe(idxKf, kf) != FrameworkReturnCode::_SUCCESS)
+				continue;
 			const Keypoint &kp = kf->getKeypoints()[idxKp];
 			Eigen::Matrix<double, 2, 1> obs;
 			obs << kp.getX(), kp.getY();
