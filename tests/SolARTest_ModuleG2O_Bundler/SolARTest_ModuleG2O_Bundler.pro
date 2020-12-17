@@ -3,7 +3,7 @@ QT       -= core gui
 CONFIG -= qt
 
 ## global defintions : target lib name, version
-TARGET = SolARTestG2OBundler
+TARGET = SolARTest_ModuleG2O_Bundler
 VERSION=0.9.0
 
 DEFINES += MYVERSION=$${VERSION}
@@ -62,7 +62,7 @@ win32 {
 }
 
 configfile.path = $${TARGETDEPLOYDIR}/
-configfile.files = $${PWD}/SolARG2OBundler_conf.xml
+configfile.files = $${PWD}/SolARTest_ModuleG2O_Bundler_conf.xml
 INSTALLS += configfile
 
 
