@@ -3,8 +3,8 @@ QT       -= core gui
 CONFIG -= qt
 
 ## global defintions : target lib name, version
-TARGET = SolARTestModuleG2OGlobalBundleAdjustment
-VERSION=0.9.2
+TARGET = SolARTest_ModuleG2O_Bundler
+VERSION=0.9.0
 
 DEFINES += MYVERSION=$${VERSION}
 CONFIG += c++1z
@@ -62,8 +62,7 @@ win32 {
 }
 
 configfile.path = $${TARGETDEPLOYDIR}/
-configfile.files = $$files($${PWD}/SolARTestModuleG2OGlobalBundleAdjustment_conf.xml)\
-					$$files($${PWD}/camera_calibration.yml)
+configfile.files = $${PWD}/SolARTest_ModuleG2O_Bundler_conf.xml
 INSTALLS += configfile
 
 

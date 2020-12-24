@@ -34,6 +34,7 @@ XPCF_DEFINE_FACTORY_CREATE_INSTANCE(SolAR::MODULES::G2O::SolAROptimizationG2O)
 
 namespace SolAR {
 using namespace datastructure;
+using namespace api::storage;
 namespace MODULES {
 namespace G2O {
 
@@ -60,7 +61,7 @@ SolAROptimizationG2O::~SolAROptimizationG2O()
     LOG_DEBUG(" SolAROptimizationG2O destructor")
 }
 
-FrameworkReturnCode SolAROptimizationG2O::setMapper(const SRef<api::solver::map::IMapper>& map)
+FrameworkReturnCode SolAROptimizationG2O::setMapper(const SRef<api::solver::map::IMapper> map)
 {
 	map->getPointCloudManager(m_pointCloudManager);
 	map->getKeyframesManager(m_keyframesManager);

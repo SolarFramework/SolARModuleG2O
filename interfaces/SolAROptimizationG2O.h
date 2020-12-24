@@ -33,8 +33,6 @@
 #include <g2o/core/robust_kernel_impl.h>
 
 namespace SolAR {
-using namespace datastructure;
-using namespace api::storage;
 namespace MODULES {
 namespace G2O {
 
@@ -55,7 +53,7 @@ public:
 	/// @brief set mapper reference to optimize
 	/// @param[in] map: the input map.
 	/// @return FrameworkReturnCode::_SUCCESS_ if the map is set, else FrameworkReturnCode::_ERROR.
-	FrameworkReturnCode setMapper(const SRef<api::solver::map::IMapper> &map) override;    
+    FrameworkReturnCode setMapper(const SRef<api::solver::map::IMapper> map) override;
 
 	/// @brief solve a non-linear problem related to bundle adjustement statement expressed as:
 	/// minArg(pts3ds,intrinsics,extrinsics) = MIN_cam_i(MIN_3d_j(pts2d_j - reproje(pt3ds_j,intrinsics_i,extrinsics_i)),
@@ -63,9 +61,7 @@ public:
 	/// @param[in, out] D: camera distorsion parameters responsible of 3D points generation
 	/// @param[in] selectKeyframes : selected views to bundle following a given strategies. If it is empty then take all keyframes into account to perform global bundle adjustment.
 	/// @return the mean re-projection error after optimization.
-	double bundleAdjustment(CamCalibration & K,
-							[[maybe_unused]] CamDistortion & D,
-							const std::vector<uint32_t> & selectKeyframes = {}) override;
+	double bundleAdjustment(CamCalibration & K, [[maybe_unused]] CamDistortion & D, const std::vector<uint32_t> & selectKeyframes = {}) override;
 
 	/// @brief Apply bundle adjustment on a set of 3D lines between multiple frames
 	/// @param[in] originalFrames: set of frames with extracted 2D lines and estimated camera poses.
@@ -95,10 +91,6 @@ private:
 	SRef<IPointCloudManager>	m_pointCloudManager;
 	SRef<IKeyframesManager>		m_keyframesManager;
 	SRef<ICovisibilityGraph>	m_covisibilityGraph;
-
-	Eigen::Matrix<double, 5, 1> m_camDistortion;
-	Eigen::Matrix<double, 3, 3> m_camMatrix;
-	Eigen::Matrix<double, 3, 3> m_Kinv;
 };
 
 // TODO(mpapin): move to separate class ?
