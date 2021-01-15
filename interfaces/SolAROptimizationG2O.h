@@ -24,8 +24,6 @@
 #include "api/storage/IPointCloudManager.h"
 
 namespace SolAR {
-using namespace datastructure;
-using namespace api::storage;
 namespace MODULES {
 namespace G2O {
 
@@ -41,10 +39,12 @@ class SOLARG2O_EXPORT_API SolAROptimizationG2O : public org::bcom::xpcf::Configu
 {
 public:
     SolAROptimizationG2O();
-    ~SolAROptimizationG2O();
+    ~SolAROptimizationG2O() override;
 
-    org::bcom::xpcf::XPCFErrorCode onConfigured() override final;
-    void unloadComponent () override final;
+	/// @brief set mapper reference to optimize
+	/// @param[in] map: the input map.
+	/// @return FrameworkReturnCode::_SUCCESS_ if the map is set, else FrameworkReturnCode::_ERROR.
+    FrameworkReturnCode setMapper(const SRef<api::solver::map::IMapper> map) override;
 
 	/// @brief solve a non-linear problem related to bundle adjustement statement expressed as:
 	/// minArg(pts3ds,intrinsics,extrinsics) = MIN_cam_i(MIN_3d_j(pts2d_j - reproje(pt3ds_j,intrinsics_i,extrinsics_i)),
@@ -52,17 +52,23 @@ public:
 	/// @param[in, out] D: camera distorsion parameters responsible of 3D points generation
 	/// @param[in] selectKeyframes : selected views to bundle following a given strategies. If it is empty then take all keyframes into account to perform global bundle adjustment.
 	/// @return the mean re-projection error after optimization.
-	double bundleAdjustment(CamCalibration & K, CamDistortion & D, const std::vector<uint32_t> & selectKeyframes = {}) override;
+	double bundleAdjustment(datastructure::CamCalibration & K, datastructure::CamDistortion & D, const std::vector<uint32_t> & selectKeyframes = {}) override;
+
+	void unloadComponent() override final;
 
 private:
-	int							m_iterations;
+	int							m_iterationsLocal = 10;
+	int							m_iterationsGlobal = 10;
 	int							m_setVerbose;
 	int							m_nbMaxFixedKeyframes;
 	float						m_errorOutlier = 3.f;
 	int							m_useSpanningTree = 0;
-	SRef<IPointCloudManager>	m_pointCloudManager;
-	SRef<IKeyframesManager>		m_keyframesManager;
-	SRef<ICovisibilityGraph>	m_covisibilityGraph;
+	int							m_isRobust = 1;
+	int							m_fixedMap = 0;
+	int							m_fixedKeyframes = 0;
+	SRef<api::storage::IPointCloudManager>	m_pointCloudManager;
+	SRef<api::storage::IKeyframesManager>	m_keyframesManager;
+	SRef<api::storage::ICovisibilityGraph>	m_covisibilityGraph;
 };
 
 }

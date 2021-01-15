@@ -43,7 +43,7 @@ int main(int argc, char ** argv) {
     boost::log::core::get()->set_logging_enabled(false);
 #endif
 
-	const std::string path_config = "SolARG2OBundler_conf.xml";
+    const std::string path_config = "SolARTest_ModuleG2O_Bundler_conf.xml";
 	SRef<xpcf::IComponentManager> xpcfComponentManager = xpcf::getComponentManagerInstance();
 	if (xpcfComponentManager->load(path_config.c_str()) != org::bcom::xpcf::_SUCCESS)
 	{
@@ -59,11 +59,11 @@ int main(int argc, char ** argv) {
 	LOG_INFO("Loaded components");
 	
     std::string scene = "room15";
-    const std::string path_poses        = "../../SolARTestModuleG2OBundler/" + scene + "Bundle/" + scene + "Poses.txt";
-    const std::string path_points3d     = "../../SolARTestModuleG2OBundler/" + scene + "Bundle/" + scene + "Pts3D.txt";;
-    const std::string path_points2d     = "../../SolARTestModuleG2OBundler/" + scene + "Bundle/" + scene + "Pts2D.txt";
-    const std::string path_calibration  = "../../SolARTestModuleG2OBundler/" + scene + "Bundle/" + scene + "Calibration.txt";
-    const std::string path_distortion   = "../../SolARTestModuleG2OBundler/" + scene + "Bundle/" + scene + "Distortion.txt";
+    const std::string path_poses        = "../../data/" + scene + "Bundle/" + scene + "Poses.txt";
+    const std::string path_points3d     = "../../data/" + scene + "Bundle/" + scene + "Pts3D.txt";;
+    const std::string path_points2d     = "../../data/" + scene + "Bundle/" + scene + "Pts2D.txt";
+    const std::string path_calibration  = "../../data/" + scene + "Bundle/" + scene + "Calibration.txt";
+    const std::string path_distortion   = "../../data/" + scene + "Bundle/" + scene + "Distortion.txt";
 
 	CamCalibration  intrinsic;
     CamDistortion   distortion;
@@ -96,7 +96,7 @@ int main(int argc, char ** argv) {
 						float x, y;
 						ox >> x;
 						ox >> y;
-						points2D[j] = Keypoint(j, x, y, 0.0, 0.0, 0.0, 0.0, 0);
+                        points2D[j] = Keypoint(j, x, y, 0.0f, 0.0f, 0.0f, 0.0f);
 					}
 					SRef<Keyframe> keyframe = xpcf::utils::make_shared<Keyframe>();
 					keyframe->setKeypoints(points2D);
