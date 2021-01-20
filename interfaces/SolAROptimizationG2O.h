@@ -32,6 +32,43 @@ namespace G2O {
  * @brief <B>Bundle adjustment optimization.</B>
  * <TT>UUID: 870d89ba-bb5f-460a-a817-1fcb6473df70</TT>
  *
+ * @SolARComponentInjectablesBegin
+ * @SolARComponentInjectable{SolAR::api::storage::IPointCloudManager}
+ * @SolARComponentInjectable{SolAR::api::storage::IKeyframesManager}
+ * @SolARComponentInjectable{SolAR::api::storage::ICovisibilityGraph}
+ * @SolARComponentInjectablesEnd
+ *
+ * @SolARComponentPropertiesBegin
+ * @SolARComponentProperty{ nbIterationsLocal,
+ *                          ,
+ *                          @SolARComponentPropertyDescNum{ int, [0..MAX INT], 10 }}
+ * @SolARComponentProperty{ nbIterationsGlobal,
+ *                          ,
+ *                          @SolARComponentPropertyDescNum{ int, [0..MAX INT], 10 }}
+ * @SolARComponentProperty{ setVerbose,
+ *                          (0 = false\, 1 = true),
+ *                          @SolARComponentPropertyDescNum{ int, [0\, 1], 0 }}
+ * @SolARComponentProperty{ nbMaxFixedKeyframes,
+ *                          ,
+ *                          @SolARComponentPropertyDescNum{ int, [0..MAX INT], 0 }}
+ * @SolARComponentProperty{ errorOutlier,
+ *                          ,
+ *                          @SolARComponentPropertyDescNum{ float, [0..MAX FLOAT], 3.f }}
+ * @SolARComponentProperty{ useSpanningTree,
+ *                          (0 = false\, 1 = true),
+ *                          @SolARComponentPropertyDescNum{ int, [0\, 1], 0 }}
+ * @SolARComponentProperty{ isRobust,
+ *                          (0 = false\, 1 = true),
+ *                          @SolARComponentPropertyDescNum{ int, [0\, 1], 1 }}
+ * @SolARComponentProperty{ fixedMap,
+ *                          (0 = false\, 1 = true),
+ *                          @SolARComponentPropertyDescNum{ int, [0\, 1], 0 }}
+ * @SolARComponentProperty{ fixedKeyframes,
+ *                          (0 = false\, 1 = true),
+ *                          @SolARComponentPropertyDescNum{ int, [0\, 1], 0 }}
+ * @SolARComponentPropertiesEnd
+ *
+ * 
  */
 
 class SOLARG2O_EXPORT_API SolAROptimizationG2O : public org::bcom::xpcf::ConfigurableBase,
