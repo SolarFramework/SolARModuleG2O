@@ -61,7 +61,7 @@ public:
 	/// @param[in, out] D: camera distorsion parameters responsible of 3D points generation
 	/// @param[in] selectKeyframes : selected views to bundle following a given strategies. If it is empty then take all keyframes into account to perform global bundle adjustment.
 	/// @return the mean re-projection error after optimization.
-	double bundleAdjustment(CamCalibration & K, [[maybe_unused]] CamDistortion & D, const std::vector<uint32_t> & selectKeyframes = {}) override;
+	double bundleAdjustment(datastructure::CamCalibration & K, datastructure::CamDistortion & D, const std::vector<uint32_t> & selectKeyframes = {}) override;
 
 	/// @brief Apply bundle adjustment on a set of 3D lines between multiple frames
 	/// @param[in] originalFrames: set of frames with extracted 2D lines and estimated camera poses.
@@ -69,12 +69,12 @@ public:
 	/// @param[out] correctedLineCloud: corrected 3D line cloud.
 	/// @param[out] correctedPoses: corrected camera poses.
 	/// @return the mean re-projection error after 3D lines and poses correction.
-	double solve(	const std::vector<SRef<Frame>> & originalFrames,
-					const std::vector<std::vector<SRef<CloudLine>>> & frameTriangulatedLines,
-					std::vector<SRef<CloudLine>> & correctedLineCloud,
-					std::vector<Transform3Df> & correctedPoses) override;
+	double solve(	const std::vector<SRef<datastructure::Frame>> & originalFrames,
+					const std::vector<std::vector<SRef<datastructure::CloudLine>>> & frameTriangulatedLines,
+					std::vector<SRef<datastructure::CloudLine>> & correctedLineCloud,
+					std::vector<datastructure::Transform3Df> & correctedPoses) override;
 
-	void setCameraParameters(const CamCalibration & intrinsicParams, const CamDistortion & distortionParams);
+	void setCameraParameters(const datastructure::CamCalibration & intrinsicParams, const datastructure::CamDistortion & distortionParams);
 
 	void unloadComponent() override final;
 
@@ -88,9 +88,13 @@ private:
 	int							m_isRobust = 1;
 	int							m_fixedMap = 0;
 	int							m_fixedKeyframes = 0;
-	SRef<IPointCloudManager>	m_pointCloudManager;
-	SRef<IKeyframesManager>		m_keyframesManager;
-	SRef<ICovisibilityGraph>	m_covisibilityGraph;
+	SRef<api::storage::IPointCloudManager>	m_pointCloudManager;
+	SRef<api::storage::IKeyframesManager>	m_keyframesManager;
+	SRef<api::storage::ICovisibilityGraph>	m_covisibilityGraph;
+	
+	Eigen::Matrix<double, 5, 1> m_camDistortion;
+	Eigen::Matrix<double, 3, 3> m_camMatrix;
+	Eigen::Matrix<double, 3, 3> m_Kinv;
 };
 
 // TODO(mpapin): move to separate class ?
