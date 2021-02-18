@@ -46,9 +46,11 @@ SolAROptimizationG2O::SolAROptimizationG2O():ConfigurableBase(xpcf::toUUID<SolAR
     declareInjectable<api::geom::I3DTransform>(m_transform3D);
     declareProperty("nbIterationsLocal", m_iterationsLocal);
     declareProperty("nbIterationsGlobal", m_iterationsGlobal);
+	declareProperty("nbIterationsSim3", m_iterationsSim3);
     declareProperty("setVerbose", m_setVerbose);
     declareProperty("nbMaxFixedKeyframes", m_nbMaxFixedKeyframes);
     declareProperty("errorOutlier", m_errorOutlier);
+	declareProperty("errorSim3", m_errorSim3);
     declareProperty("useSpanningTree", m_useSpanningTree);
     declareProperty("isRobust", m_isRobust);
 	declareProperty("fixedMap", m_fixedMap);
@@ -95,8 +97,7 @@ Transform3Df toSolarPose(const g2o::SE3Quat &SE3)
     return pose;
 }
 
-double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused]] CamDistortion & D, const std::vector<uint32_t> & selectKeyframes)
-{
+double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused]] CamDistortion & D, const std::vector<uint32_t> & selectKeyframes){
 	// get cloud points and keyframes to optimize
 	int iterations;
 	std::vector< SRef<Keyframe>> keyframes;
@@ -256,14 +257,13 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused
 			const Keypoint &kp = kf->getKeypoints()[idxKp];
 			Eigen::Matrix<double, 2, 1> obs;
 			obs << kp.getX(), kp.getY();
-
 			g2o::EdgeSE3ProjectXYZ* e = new g2o::EdgeSE3ProjectXYZ();
-
 			e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id)));
 			e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(idxKf)));
 			e->setMeasurement(obs);
+			const float edgeWeight = kp.getResponse();
+			//e->setInformation(Eigen::Matrix2d::Identity() * edgeWeight);
 			e->setInformation(Eigen::Matrix2d::Identity());
-
 			if (m_isRobust) {
 				g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
 				e->setRobustKernel(rk);
@@ -274,6 +274,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused
 			e->fy = K(1, 1);
 			e->cx = K(0, 2);
 			e->cy = K(1, 2);
+
 			optimizer.addEdge(e);
 			nbObservations++;
 			allEdges.push_back(e);
@@ -300,7 +301,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused
 	// Optimize again without the outliers
 	optimizer.initializeOptimization(0);
 	optimizer.optimize(iterations / 2);
-
+	
 	// Recover optimized data
 	//Keyframes
 	for (int i = 0; i < keyframes.size(); i++) {
@@ -444,16 +445,37 @@ double SolAROptimizationG2O::optimizeSim3(CamCalibration & K1, CamCalibration & 
 		vnIndexEdge.push_back(i);
 
 	}
-
+	const int sim3MinInliers   = 10;
 	optimizer.initializeOptimization();
 	optimizer.setVerbose(m_setVerbose);
-	optimizer.optimize(10);
+	// set number of iterations as argument
+	optimizer.optimize(m_iterationsSim3);
+	int sim3Inliers = vpEdges12.size();
+	for (size_t i = 0; i < vpEdges12.size(); i++){
+		g2o::EdgeSim3ProjectXYZ* e12 = vpEdges12[i];
+		g2o::EdgeInverseSim3ProjectXYZ* e21 = vpEdges21[i];
+		if (!e12 || !e21)
+			continue;
+		if (std::sqrt(e12->chi2()) > m_errorSim3){
+			size_t idx = vnIndexEdge[i];
+			optimizer.removeEdge(e12);
+			optimizer.removeEdge(e21);
+			vpEdges12[i] = static_cast<g2o::EdgeSim3ProjectXYZ*>(NULL);
+			vpEdges21[i] = static_cast<g2o::EdgeInverseSim3ProjectXYZ*>(NULL);
+			sim3Inliers--;
+		}
+	}
 
+	if (sim3Inliers > sim3MinInliers) {
+		LOG_INFO("Number of Sim3 inliers {}\n: ", sim3Inliers);
+		LOG_INFO("Inliers-based Sim3 optimization\n: ");
+		optimizer.initializeOptimization();
+		optimizer.setVerbose(m_setVerbose);
+		// set number of iterations as argument
+		optimizer.optimize(m_iterationsSim3/2);
+	}
 	g2o::VertexSim3Expmap* vSim3_recov = static_cast<g2o::VertexSim3Expmap*>(optimizer.vertex(0));
 	g2oS12 = vSim3_recov->estimate();
-/*	LOG_INFO("Optimized sim3 (R):  {}", g2oS12.rotation().matrix());
-	LOG_INFO("Optimized sim3 (t):  {}", g2oS12.translation().matrix());
-	LOG_INFO("Optimized sim3 (s):  {}", vSim3_recov->estimate().scale());*/	
 
 	// optimized pose
 	pose.linear() = static_cast<float>(g2oS12.scale()) * g2oS12.rotation().toRotationMatrix().cast<float>();

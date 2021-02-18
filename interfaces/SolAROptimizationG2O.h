@@ -81,9 +81,11 @@ public:
 private:
 	int							m_iterationsLocal = 10;
 	int							m_iterationsGlobal = 10;
+	int							m_iterationsSim3   = 20;
 	int							m_setVerbose;
 	int							m_nbMaxFixedKeyframes;
 	float						m_errorOutlier = 3.f;
+	float						m_errorSim3 = 50.f;
 	int							m_useSpanningTree = 0;
 	int							m_isRobust = 1;
 	int							m_fixedMap = 0;
