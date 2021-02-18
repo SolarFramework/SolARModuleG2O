@@ -24,6 +24,7 @@
 #include <g2o/types/sba/types_six_dof_expmap.h>
 #include <g2o/types/sim3/types_seven_dof_expmap.h>
 #include <g2o/core/robust_kernel_impl.h>
+#include "xpcf/core/helpers.h"
 #include <map>
 #include <numeric>
 
@@ -34,6 +35,7 @@ XPCF_DEFINE_FACTORY_CREATE_INSTANCE(SolAR::MODULES::G2O::SolAROptimizationG2O)
 
 namespace SolAR {
 using namespace datastructure;
+using namespace api::storage;
 namespace MODULES {
 namespace G2O {
 
@@ -64,7 +66,7 @@ SolAROptimizationG2O::~SolAROptimizationG2O()
     LOG_DEBUG(" SolAROptimizationG2O destructor")
 }
 
-FrameworkReturnCode SolAROptimizationG2O::setMapper(const SRef<api::solver::map::IMapper>& map)
+FrameworkReturnCode SolAROptimizationG2O::setMapper(const SRef<api::solver::map::IMapper> map)
 {
 	map->getPointCloudManager(m_pointCloudManager);
 	map->getKeyframesManager(m_keyframesManager);
@@ -97,7 +99,8 @@ Transform3Df toSolarPose(const g2o::SE3Quat &SE3)
     return pose;
 }
 
-double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused]] CamDistortion & D, const std::vector<uint32_t> & selectKeyframes){
+double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(maybe_unused) CamDistortion & D, const std::vector<uint32_t> & selectKeyframes)
+{
 	// get cloud points and keyframes to optimize
 	int iterations;
 	std::vector< SRef<Keyframe>> keyframes;
@@ -254,7 +257,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, [[maybe_unused
 			SRef<Keyframe> kf;
 			if (m_keyframesManager->getKeyframe(idxKf, kf) != FrameworkReturnCode::_SUCCESS)
 				continue;
-			const Keypoint &kp = kf->getKeypoints()[idxKp];
+			const Keypoint &kp = kf->getUndistortedKeypoint(idxKp);
 			Eigen::Matrix<double, 2, 1> obs;
 			obs << kp.getX(), kp.getY();
 			g2o::EdgeSE3ProjectXYZ* e = new g2o::EdgeSE3ProjectXYZ();

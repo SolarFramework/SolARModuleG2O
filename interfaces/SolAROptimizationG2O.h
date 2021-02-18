@@ -25,8 +25,6 @@
 #include "api/geom/I3DTransform.h"
 
 namespace SolAR {
-using namespace datastructure;
-using namespace api::storage;
 namespace MODULES {
 namespace G2O {
 
@@ -35,6 +33,43 @@ namespace G2O {
  * @brief <B>Bundle adjustment optimization.</B>
  * <TT>UUID: 870d89ba-bb5f-460a-a817-1fcb6473df70</TT>
  *
+ * @SolARComponentInjectablesBegin
+ * @SolARComponentInjectable{SolAR::api::storage::IPointCloudManager}
+ * @SolARComponentInjectable{SolAR::api::storage::IKeyframesManager}
+ * @SolARComponentInjectable{SolAR::api::storage::ICovisibilityGraph}
+ * @SolARComponentInjectablesEnd
+ *
+ * @SolARComponentPropertiesBegin
+ * @SolARComponentProperty{ nbIterationsLocal,
+ *                          ,
+ *                          @SolARComponentPropertyDescNum{ int, [0..MAX INT], 10 }}
+ * @SolARComponentProperty{ nbIterationsGlobal,
+ *                          ,
+ *                          @SolARComponentPropertyDescNum{ int, [0..MAX INT], 10 }}
+ * @SolARComponentProperty{ setVerbose,
+ *                          (0 = false\, 1 = true),
+ *                          @SolARComponentPropertyDescNum{ int, [0\, 1], 0 }}
+ * @SolARComponentProperty{ nbMaxFixedKeyframes,
+ *                          ,
+ *                          @SolARComponentPropertyDescNum{ int, [0..MAX INT], 0 }}
+ * @SolARComponentProperty{ errorOutlier,
+ *                          ,
+ *                          @SolARComponentPropertyDescNum{ float, [0..MAX FLOAT], 3.f }}
+ * @SolARComponentProperty{ useSpanningTree,
+ *                          (0 = false\, 1 = true),
+ *                          @SolARComponentPropertyDescNum{ int, [0\, 1], 0 }}
+ * @SolARComponentProperty{ isRobust,
+ *                          (0 = false\, 1 = true),
+ *                          @SolARComponentPropertyDescNum{ int, [0\, 1], 1 }}
+ * @SolARComponentProperty{ fixedMap,
+ *                          (0 = false\, 1 = true),
+ *                          @SolARComponentPropertyDescNum{ int, [0\, 1], 0 }}
+ * @SolARComponentProperty{ fixedKeyframes,
+ *                          (0 = false\, 1 = true),
+ *                          @SolARComponentPropertyDescNum{ int, [0\, 1], 0 }}
+ * @SolARComponentPropertiesEnd
+ *
+ * 
  */
 
 class SOLARG2O_EXPORT_API SolAROptimizationG2O : public org::bcom::xpcf::ConfigurableBase,
@@ -47,7 +82,7 @@ public:
 	/// @brief set mapper reference to optimize
 	/// @param[in] map: the input map.
 	/// @return FrameworkReturnCode::_SUCCESS_ if the map is set, else FrameworkReturnCode::_ERROR.
-	FrameworkReturnCode setMapper(const SRef<api::solver::map::IMapper> &map) override;    
+    FrameworkReturnCode setMapper(const SRef<api::solver::map::IMapper> map) override;
 
 	/// @brief solve a non-linear problem related to bundle adjustement statement expressed as:
 	/// minArg(pts3ds,intrinsics,extrinsics) = MIN_cam_i(MIN_3d_j(pts2d_j - reproje(pt3ds_j,intrinsics_i,extrinsics_i)),
@@ -55,7 +90,7 @@ public:
 	/// @param[in, out] D: camera distorsion parameters responsible of 3D points generation
 	/// @param[in] selectKeyframes : selected views to bundle following a given strategies. If it is empty then take all keyframes into account to perform global bundle adjustment.
 	/// @return the mean re-projection error after optimization.
-	double bundleAdjustment(CamCalibration & K, CamDistortion & D, const std::vector<uint32_t> & selectKeyframes = {}) override;
+	double bundleAdjustment(datastructure::CamCalibration & K, datastructure::CamDistortion & D, const std::vector<uint32_t> & selectKeyframes = {}) override;
 
 	/// @brief solve a non-linear problem related to sim3D optimization between two overlaped keyframes of two different maps:
 	/// @param[in] K1: camera calibration parameters responsible of 3D points generation from map 1.
@@ -91,10 +126,9 @@ private:
 	int							m_fixedMap = 0;
 	int							m_fixedKeyframes = 0;
 	int							m_fixedScale = 0;
-	SRef<IPointCloudManager>	m_pointCloudManager;
-	SRef<IKeyframesManager>		m_keyframesManager;
-	SRef<ICovisibilityGraph>	m_covisibilityGraph;
-	SRef<api::geom::I3DTransform>m_transform3D;
+	SRef<api::storage::IPointCloudManager>	m_pointCloudManager;
+	SRef<api::storage::IKeyframesManager>	m_keyframesManager;
+	SRef<api::storage::ICovisibilityGraph>	m_covisibilityGraph;
 };
 
 }
