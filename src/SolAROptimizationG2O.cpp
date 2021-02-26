@@ -19,6 +19,7 @@
 #include <g2o/core/block_solver.h>
 #include <g2o/core/optimization_algorithm_levenberg.h>
 #include <g2o/solvers/eigen/linear_solver_eigen.h>
+#include <g2o/solvers/structure_only/structure_only_solver.h>
 #include <g2o/core/block_solver.h>
 #include <g2o/types/sba/types_six_dof_expmap.h>
 #include <g2o/types/sim3/types_seven_dof_expmap.h>
@@ -281,19 +282,36 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 
 	// Optimize!
 	optimizer.initializeOptimization();
-	optimizer.setVerbose(m_setVerbose);
-	optimizer.optimize(iterations / 2);
+	optimizer.setVerbose(m_setVerbose);	
 
-	// Filter outliers
-	for (const auto &edge : allEdges) {
-		if (edge->chi2() > m_errorOutlier * m_errorOutlier){
-			edge->setLevel(1);
+	if (m_fixedKeyframes) {
+		if (m_fixedMap)
+			return 0;
+		optimizer.computeActiveErrors();
+		LOG_DEBUG("Chi2 error before performing structure only BA: {}", optimizer.chi2());
+		g2o::StructureOnlySolver<3> structure_only_ba;
+		g2o::OptimizableGraph::VertexContainer points;
+		for (auto it = optimizer.vertices().begin(); it != optimizer.vertices().end(); ++it) {
+			g2o::OptimizableGraph::Vertex* v = static_cast<g2o::OptimizableGraph::Vertex*>(it->second);
+			if (v->dimension() == 3)
+				points.push_back(v);
 		}
-		edge->setRobustKernel(0);
+		structure_only_ba.calc(points, iterations);
+		LOG_DEBUG("Chi2 error after performing structure only BA: {}", optimizer.chi2());
 	}
-	// Optimize again without the outliers
-	optimizer.initializeOptimization(0);
-	optimizer.optimize(iterations / 2);
+	else {
+		optimizer.optimize(iterations / 2);
+		// Filter outliers
+		for (const auto &edge : allEdges) {
+			if (edge->chi2() > m_errorOutlier * m_errorOutlier) {
+				edge->setLevel(1);
+			}
+			edge->setRobustKernel(0);
+		}
+		// Optimize again without the outliers
+		optimizer.initializeOptimization(0);
+		optimizer.optimize(iterations / 2);
+	}
 
 	// Recover optimized data
 	//Keyframes
