@@ -126,6 +126,7 @@ private:
 	int							m_fixedMap = 0;
 	int							m_fixedKeyframes = 0;
 	int							m_fixedScale = 0;
+    SRef<api::geom::I3DTransform>           m_transform3D;
 	SRef<api::storage::IPointCloudManager>	m_pointCloudManager;
 	SRef<api::storage::IKeyframesManager>	m_keyframesManager;
 	SRef<api::storage::ICovisibilityGraph>	m_covisibilityGraph;
