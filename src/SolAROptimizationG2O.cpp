@@ -248,7 +248,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 				continue;
 			SRef<Keyframe> kf;
 			m_keyframesManager->getKeyframe(idxKf, kf);
-			const Keypoint &kp = kf->getKeypoints()[idxKp];
+			const Keypoint &kp = kf->getUndistortedKeypoint(idxKp);
 			Eigen::Matrix<double, 2, 1> obs;
 			obs << kp.getX(), kp.getY();
 
