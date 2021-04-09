@@ -45,7 +45,7 @@ SolAROptimizationG2O::SolAROptimizationG2O():ConfigurableBase(xpcf::toUUID<SolAR
     addInterface<api::solver::map::IBundler>(this);
     declareInjectable<IPointCloudManager>(m_pointCloudManager);
     declareInjectable<IKeyframesManager>(m_keyframesManager);
-    declareInjectable<ICovisibilityGraph>(m_covisibilityGraph);
+    declareInjectable<ICovisibilityGraphManager>(m_covisibilityGraphManager);
     declareInjectable<api::geom::I3DTransform>(m_transform3D);
     declareProperty("nbIterationsLocal", m_iterationsLocal);
     declareProperty("nbIterationsGlobal", m_iterationsGlobal);
@@ -67,11 +67,11 @@ SolAROptimizationG2O::~SolAROptimizationG2O()
     LOG_DEBUG(" SolAROptimizationG2O destructor")
 }
 
-FrameworkReturnCode SolAROptimizationG2O::setMapper(const SRef<api::solver::map::IMapper> map)
+FrameworkReturnCode SolAROptimizationG2O::setMap(const SRef<datastructure::Map> map)
 {
-	map->getPointCloudManager(m_pointCloudManager);
-	map->getKeyframesManager(m_keyframesManager);
-	map->getCovisibilityGraph(m_covisibilityGraph);
+	m_pointCloudManager->setPointCloud(map->getConstPointCloud());
+	m_keyframesManager->setKeyframeCollection(map->getConstKeyframeCollection());
+	m_covisibilityGraphManager->setCovisibilityGraph(map->getConstCovisibilityGraph());
 	return FrameworkReturnCode::_SUCCESS;
 }
 
@@ -151,7 +151,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 		// get the maximal spanning tree
 		std::vector<std::tuple<uint32_t, uint32_t, float>> edgesSpanningTree;
 		float totalWeights;
-		m_covisibilityGraph->maximalSpanningTree(edgesSpanningTree, totalWeights);
+		m_covisibilityGraphManager->maximalSpanningTree(edgesSpanningTree, totalWeights);
 
 		// get cloud points belong to maximal spanning tree
 		std::set<uint32_t> idxCloudPoints;
