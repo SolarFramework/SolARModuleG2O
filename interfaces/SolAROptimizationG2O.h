@@ -19,11 +19,13 @@
 #include "SolARG2OAPI.h"
 #include "xpcf/component/ConfigurableBase.h"
 #include "api/solver/map/IBundler.h"
-#include "api/storage/ICovisibilityGraph.h"
+#include "api/storage/ICovisibilityGraphManager.h"
 #include "api/storage/IKeyframesManager.h"
 #include "api/storage/IPointCloudManager.h"
+#include "api/geom/I3DTransform.h"
 
 namespace SolAR {
+using namespace datastructure;
 namespace MODULES {
 namespace G2O {
 
@@ -35,7 +37,7 @@ namespace G2O {
  * @SolARComponentInjectablesBegin
  * @SolARComponentInjectable{SolAR::api::storage::IPointCloudManager}
  * @SolARComponentInjectable{SolAR::api::storage::IKeyframesManager}
- * @SolARComponentInjectable{SolAR::api::storage::ICovisibilityGraph}
+ * @SolARComponentInjectable{SolAR::api::storage::ICovisibilityGraphManager}
  * @SolARComponentInjectablesEnd
  *
  * @SolARComponentPropertiesBegin
@@ -78,10 +80,10 @@ public:
     SolAROptimizationG2O();
     ~SolAROptimizationG2O() override;
 
-	/// @brief set mapper reference to optimize
-	/// @param[in] map: the input map.
+	/// @brief set map reference to optimize
+	/// @param[in] map the input map.
 	/// @return FrameworkReturnCode::_SUCCESS_ if the map is set, else FrameworkReturnCode::_ERROR.
-    FrameworkReturnCode setMapper(const SRef<api::solver::map::IMapper> map) override;
+    FrameworkReturnCode setMap(const SRef<datastructure::Map> map) override;
 
 	/// @brief solve a non-linear problem related to bundle adjustement statement expressed as:
 	/// minArg(pts3ds,intrinsics,extrinsics) = MIN_cam_i(MIN_3d_j(pts2d_j - reproje(pt3ds_j,intrinsics_i,extrinsics_i)),
@@ -91,21 +93,44 @@ public:
 	/// @return the mean re-projection error after optimization.
 	double bundleAdjustment(datastructure::CamCalibration & K, datastructure::CamDistortion & D, const std::vector<uint32_t> & selectKeyframes = {}) override;
 
+	/// @brief solve a non-linear problem related to sim3D optimization between two overlaped keyframes of two different maps:
+	/// @param[in] K1: camera calibration parameters responsible of 3D points generation from map 1.
+	/// @param[in] K2: camera calibration parameters responsible of 3D points generation from map 2.
+	/// @param[in] keyframe1: first overlapping keyframe from map 1.
+	/// @param[in] keyframe2: second overlapping keyframe from map 2.
+	/// @param[in] matches: matches between two keyframes.
+	/// @param[in] pts3D1: first set of 3D points.
+	/// @param[in] pts3D2: second set of 3D points.
+	/// @param[in, out] pose: Sim3 matrix pose between map1 and map2
+	/// @return the mean re-projection error.
+	double optimizeSim3(datastructure::CamCalibration& K1,
+						datastructure::CamCalibration& K2,
+						const SRef<Keyframe>& keyframe1,
+						const SRef<Keyframe>& keyframe2,
+						const std::vector<DescriptorMatch>& matches,
+						const std::vector<Point3Df> & pts3D1,
+						const std::vector<Point3Df> & pts3D2,
+						datastructure::Transform3Df & pose) override;
+
 	void unloadComponent() override final;
 
 private:
 	int							m_iterationsLocal = 10;
 	int							m_iterationsGlobal = 10;
+	int							m_iterationsSim3   = 20;
 	int							m_setVerbose;
 	int							m_nbMaxFixedKeyframes;
 	float						m_errorOutlier = 3.f;
+	float						m_errorSim3 = 50.f;
 	int							m_useSpanningTree = 0;
 	int							m_isRobust = 1;
 	int							m_fixedMap = 0;
 	int							m_fixedKeyframes = 0;
-	SRef<api::storage::IPointCloudManager>	m_pointCloudManager;
-	SRef<api::storage::IKeyframesManager>	m_keyframesManager;
-	SRef<api::storage::ICovisibilityGraph>	m_covisibilityGraph;
+	int							m_fixedScale = 0;
+    SRef<api::geom::I3DTransform>					m_transform3D;
+	SRef<api::storage::IPointCloudManager>			m_pointCloudManager;
+	SRef<api::storage::IKeyframesManager>			m_keyframesManager;
+	SRef<api::storage::ICovisibilityGraphManager>	m_covisibilityGraphManager;
 };
 
 }

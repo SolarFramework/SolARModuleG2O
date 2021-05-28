@@ -19,6 +19,7 @@
 #include <g2o/core/block_solver.h>
 #include <g2o/core/optimization_algorithm_levenberg.h>
 #include <g2o/solvers/eigen/linear_solver_eigen.h>
+#include <g2o/solvers/dense/linear_solver_dense.h>
 #include <g2o/solvers/structure_only/structure_only_solver.h>
 #include <g2o/core/block_solver.h>
 #include <g2o/types/sba/types_six_dof_expmap.h>
@@ -44,16 +45,20 @@ SolAROptimizationG2O::SolAROptimizationG2O():ConfigurableBase(xpcf::toUUID<SolAR
     addInterface<api::solver::map::IBundler>(this);
     declareInjectable<IPointCloudManager>(m_pointCloudManager);
     declareInjectable<IKeyframesManager>(m_keyframesManager);
-    declareInjectable<ICovisibilityGraph>(m_covisibilityGraph);
+    declareInjectable<ICovisibilityGraphManager>(m_covisibilityGraphManager);
+    declareInjectable<api::geom::I3DTransform>(m_transform3D);
     declareProperty("nbIterationsLocal", m_iterationsLocal);
     declareProperty("nbIterationsGlobal", m_iterationsGlobal);
+	declareProperty("nbIterationsSim3", m_iterationsSim3);
     declareProperty("setVerbose", m_setVerbose);
     declareProperty("nbMaxFixedKeyframes", m_nbMaxFixedKeyframes);
     declareProperty("errorOutlier", m_errorOutlier);
+	declareProperty("errorSim3", m_errorSim3);
     declareProperty("useSpanningTree", m_useSpanningTree);
     declareProperty("isRobust", m_isRobust);
 	declareProperty("fixedMap", m_fixedMap);
 	declareProperty("fixedKeyframes", m_fixedKeyframes);
+	declareProperty("fixedScale", m_fixedScale);
     LOG_DEBUG("SolAROptimizationG2O constructor");
 }
 
@@ -62,11 +67,11 @@ SolAROptimizationG2O::~SolAROptimizationG2O()
     LOG_DEBUG(" SolAROptimizationG2O destructor")
 }
 
-FrameworkReturnCode SolAROptimizationG2O::setMapper(const SRef<api::solver::map::IMapper> map)
+FrameworkReturnCode SolAROptimizationG2O::setMap(const SRef<datastructure::Map> map)
 {
-	map->getPointCloudManager(m_pointCloudManager);
-	map->getKeyframesManager(m_keyframesManager);
-	map->getCovisibilityGraph(m_covisibilityGraph);
+	m_pointCloudManager->setPointCloud(map->getConstPointCloud());
+	m_keyframesManager->setKeyframeCollection(map->getConstKeyframeCollection());
+	m_covisibilityGraphManager->setCovisibilityGraph(map->getConstCovisibilityGraph());
 	return FrameworkReturnCode::_SUCCESS;
 }
 
@@ -109,7 +114,8 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 		std::set<uint32_t> idxLocalCloudPoints;
 		for (auto const &it_kf : selectKeyframes) {
 			SRef<Keyframe> keyframe;
-			m_keyframesManager->getKeyframe(it_kf, keyframe);
+			if (m_keyframesManager->getKeyframe(it_kf, keyframe) != FrameworkReturnCode::_SUCCESS)
+				continue;
 			keyframes.push_back(keyframe);
 			const std::map<uint32_t, uint32_t>& mapPointVisibility = keyframe->getVisibility();
 			for (auto const &it_pc : mapPointVisibility) {
@@ -145,14 +151,16 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 		// get the maximal spanning tree
 		std::vector<std::tuple<uint32_t, uint32_t, float>> edgesSpanningTree;
 		float totalWeights;
-		m_covisibilityGraph->maximalSpanningTree(edgesSpanningTree, totalWeights);
+		m_covisibilityGraphManager->maximalSpanningTree(edgesSpanningTree, totalWeights);
 
 		// get cloud points belong to maximal spanning tree
 		std::set<uint32_t> idxCloudPoints;
 		for (const auto &edge : edgesSpanningTree) {
 			SRef<Keyframe> kf1, kf2;
-			m_keyframesManager->getKeyframe(std::get<0>(edge), kf1);
-			m_keyframesManager->getKeyframe(std::get<1>(edge), kf2);
+			if (m_keyframesManager->getKeyframe(std::get<0>(edge), kf1) != FrameworkReturnCode::_SUCCESS)
+				continue;
+			if (m_keyframesManager->getKeyframe(std::get<1>(edge), kf2) != FrameworkReturnCode::_SUCCESS)
+				continue;
 			std::map<uint32_t, uint32_t> kf1_visibilites = kf1->getVisibility();
 			std::map<uint32_t, uint32_t> kf2_visibilites = kf2->getVisibility();
 			std::map<uint32_t, int> countNbSeenCP;
@@ -209,7 +217,8 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 	if (selectKeyframes.size() > 0) {		
 		for (auto const &it : idxFixedKeyFrames) {
 			SRef<Keyframe> localFixedKeyframe;
-			m_keyframesManager->getKeyframe(it, localFixedKeyframe);
+			if (m_keyframesManager->getKeyframe(it, localFixedKeyframe) != FrameworkReturnCode::_SUCCESS)
+				continue;
 			g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
 			vSE3->setEstimate(toSE3Quat(localFixedKeyframe->getPose().inverse()));
 			vSE3->setId(it);
@@ -247,18 +256,18 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 			if ((idxKeyFrames.find(idxKf) == idxKeyFrames.end()) && (idxFixedKeyFrames.find(idxKf) == idxFixedKeyFrames.end()))
 				continue;
 			SRef<Keyframe> kf;
-			m_keyframesManager->getKeyframe(idxKf, kf);
+			if (m_keyframesManager->getKeyframe(idxKf, kf) != FrameworkReturnCode::_SUCCESS)
+				continue;
 			const Keypoint &kp = kf->getUndistortedKeypoint(idxKp);
 			Eigen::Matrix<double, 2, 1> obs;
 			obs << kp.getX(), kp.getY();
-
 			g2o::EdgeSE3ProjectXYZ* e = new g2o::EdgeSE3ProjectXYZ();
-
 			e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id)));
 			e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(idxKf)));
 			e->setMeasurement(obs);
+			const float edgeWeight = kp.getResponse();
+			//e->setInformation(Eigen::Matrix2d::Identity() * edgeWeight);
 			e->setInformation(Eigen::Matrix2d::Identity());
-
 			if (m_isRobust) {
 				g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
 				e->setRobustKernel(rk);
@@ -269,6 +278,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 			e->fy = K(1, 1);
 			e->cx = K(0, 2);
 			e->cy = K(1, 2);
+
 			optimizer.addEdge(e);
 			nbObservations++;
 			allEdges.push_back(e);
@@ -312,7 +322,6 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 		optimizer.initializeOptimization(0);
 		optimizer.optimize(iterations / 2);
 	}
-
 	// Recover optimized data
 	//Keyframes
 	for (int i = 0; i < keyframes.size(); i++) {
@@ -347,6 +356,154 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 		mapPoint->setReprojError(std::accumulate(it.second.begin(), it.second.end(), 0.0) / it.second.size());
 	}
 	return optimizer.chi2() / nbObservations;
+}
+
+double SolAROptimizationG2O::optimizeSim3(CamCalibration & K1, CamCalibration & K2, const SRef<Keyframe>& keyframe1, const SRef<Keyframe>& keyframe2, const std::vector<DescriptorMatch>& matches, const std::vector<Point3Df> & pts3D1, const std::vector<Point3Df> & pts3D2, Transform3Df & pose)
+{
+	g2o::SparseOptimizer optimizer;
+	auto linearSolver = std::make_unique<g2o::LinearSolverDense<g2o::BlockSolverX::PoseMatrixType>>();
+	auto solver = new g2o::OptimizationAlgorithmLevenberg(std::make_unique<g2o::BlockSolverX>(std::move(linearSolver)));
+	optimizer.setAlgorithm(solver);
+	// Init vertex 0 for sim3
+	Transform3Df sim3_K1_k2 = keyframe1->getPose().inverse() * pose * keyframe2->getPose();
+	Eigen::Matrix3f scaleMatrix;
+	Eigen::Matrix3f rot;
+	Eigen::Vector3f translation;
+	float scale;
+	sim3_K1_k2.computeScalingRotation(&scaleMatrix, &rot);
+	scale = scaleMatrix(0, 0);
+	translation = sim3_K1_k2.translation() / scale;
+	g2o::Sim3 g2oS12(rot.cast<double>(), translation.cast<double>(), static_cast<double>(scale));
+
+	g2o::VertexSim3Expmap * vSim3 = new g2o::VertexSim3Expmap();
+	vSim3->_fix_scale = (bool)m_fixedScale;
+	vSim3->setEstimate(g2oS12);
+	vSim3->setId(0);
+	vSim3->setFixed(false);
+	vSim3->_principle_point1[0] = K1(0, 2);
+	vSim3->_principle_point1[1] = K1(1, 2);
+	vSim3->_focal_length1[0] = K1(0, 0);
+	vSim3->_focal_length1[1] = K1(1, 1);
+	vSim3->_principle_point2[0] = K2(0, 2);
+	vSim3->_principle_point2[1] = K2(1, 2);
+	vSim3->_focal_length2[0] = K2(0, 0);
+	vSim3->_focal_length2[1] = K2(1, 1);
+	optimizer.addVertex(vSim3);
+
+	// Set MapPoint vertices
+	const int N = pts3D1.size();
+	std::vector<g2o::EdgeSim3ProjectXYZ*> vpEdges12;
+	std::vector<g2o::EdgeInverseSim3ProjectXYZ*> vpEdges21;
+	std::vector<size_t> vnIndexEdge;
+	vnIndexEdge.reserve(2 * N);
+	vpEdges12.reserve(2 * N);
+	vpEdges21.reserve(2 * N);	
+
+	Transform3Df pose1 = keyframe1->getPose().inverse(); 
+	Transform3Df pose2 = keyframe2->getPose().inverse(); 
+	std::vector<Point3Df> pts3D1Transformed, pts3D2Transformed;
+	m_transform3D->transform(pts3D1, pose1, pts3D1Transformed);
+	m_transform3D->transform(pts3D2, pose2, pts3D2Transformed);
+
+	const float deltaHuber = m_errorOutlier;
+	for (int i = 0; i < N; i++) {
+		const int id1 = 2 * i + 1;
+		const int id2 = 2 * (i + 1);
+
+		g2o::VertexSBAPointXYZ* vPoint1 = new g2o::VertexSBAPointXYZ();
+		Eigen::Matrix<double, 3, 1> v1;
+		v1 << pts3D1Transformed[i].getX(), pts3D1Transformed[i].getY(), pts3D1Transformed[i].getZ();
+		vPoint1->setEstimate(v1);
+		vPoint1->setId(id1);
+		vPoint1->setFixed(true);
+		optimizer.addVertex(vPoint1);
+
+		/// use project function to see the result  of the reproj error !
+		g2o::VertexSBAPointXYZ* vPoint2 = new g2o::VertexSBAPointXYZ();
+		Eigen::Matrix<double, 3, 1> v2;
+		v2 << pts3D2Transformed[i].getX(), pts3D2Transformed[i].getY(), pts3D2Transformed[i].getZ();
+		vPoint2->setEstimate(v2);
+		vPoint2->setId(id2);
+		vPoint2->setFixed(true);
+		optimizer.addVertex(vPoint2);
+
+		const Keypoint& kp1 = keyframe1->getKeypoint(matches[i].getIndexInDescriptorA());
+		const Keypoint& kp2 = keyframe2->getKeypoint(matches[i].getIndexInDescriptorB());
+
+		// Set edge x1 = S12*X2		
+		Eigen::Matrix<double, 2, 1> obs1;
+		obs1 << kp1.getX(), kp1.getY();
+		g2o::EdgeSim3ProjectXYZ* e12 = new g2o::EdgeSim3ProjectXYZ();
+		e12->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id2)));
+		e12->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(0)));
+		e12->setMeasurement(obs1);
+		e12->setInformation(Eigen::Matrix2d::Identity());
+		if (m_isRobust) {
+			g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+			e12->setRobustKernel(rk);
+			rk->setDelta(deltaHuber);
+		}
+		optimizer.addEdge(e12);
+
+		// Set edge x2 = S21*X1
+		Eigen::Matrix<double, 2, 1> obs2;
+		obs2 << kp2.getX(), kp2.getY();
+		g2o::EdgeInverseSim3ProjectXYZ* e21 = new g2o::EdgeInverseSim3ProjectXYZ();
+		e21->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id1)));
+		e21->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(0)));
+		e21->setMeasurement(obs2);
+		e21->setInformation(Eigen::Matrix2d::Identity());
+		if (m_isRobust) {
+			g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+			e12->setRobustKernel(rk);
+			rk->setDelta(deltaHuber);
+		}
+		optimizer.addEdge(e21);
+
+		vpEdges12.push_back(e12);
+		vpEdges21.push_back(e21);
+		vnIndexEdge.push_back(i);
+
+	}
+	const int sim3MinInliers   = 10;
+	optimizer.initializeOptimization();
+	optimizer.setVerbose(m_setVerbose);
+	// set number of iterations as argument
+	optimizer.optimize(m_iterationsSim3);
+	int sim3Inliers = vpEdges12.size();
+	for (size_t i = 0; i < vpEdges12.size(); i++){
+		g2o::EdgeSim3ProjectXYZ* e12 = vpEdges12[i];
+		g2o::EdgeInverseSim3ProjectXYZ* e21 = vpEdges21[i];
+		if (!e12 || !e21)
+			continue;
+		if (std::sqrt(e12->chi2()) > m_errorSim3){
+			size_t idx = vnIndexEdge[i];
+			optimizer.removeEdge(e12);
+			optimizer.removeEdge(e21);
+			vpEdges12[i] = static_cast<g2o::EdgeSim3ProjectXYZ*>(NULL);
+			vpEdges21[i] = static_cast<g2o::EdgeInverseSim3ProjectXYZ*>(NULL);
+			sim3Inliers--;
+		}
+	}
+
+	if (sim3Inliers > sim3MinInliers) {
+		LOG_INFO("Number of Sim3 inliers {}\n: ", sim3Inliers);
+		LOG_INFO("Inliers-based Sim3 optimization\n: ");
+		optimizer.initializeOptimization();
+		optimizer.setVerbose(m_setVerbose);
+		// set number of iterations as argument
+		optimizer.optimize(m_iterationsSim3/2);
+	}
+	g2o::VertexSim3Expmap* vSim3_recov = static_cast<g2o::VertexSim3Expmap*>(optimizer.vertex(0));
+	g2oS12 = vSim3_recov->estimate();
+
+	// optimized pose
+	pose.linear() = static_cast<float>(g2oS12.scale()) * g2oS12.rotation().toRotationMatrix().cast<float>();
+	pose.translation() = static_cast<float>(g2oS12.scale()) * g2oS12.translation().cast<float>();
+
+	pose = keyframe1->getPose() * pose * keyframe2->getPose().inverse();
+
+	return optimizer.chi2();
 }
 
 }

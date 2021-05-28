@@ -24,7 +24,7 @@
 #include "xpcf/xpcf.h"
 #include "api/display/I3DPointsViewer.h"
 #include "api/solver/map/IBundler.h"
-#include "api/storage/ICovisibilityGraph.h"
+#include "api/storage/ICovisibilityGraphManager.h"
 #include "api/storage/IKeyframesManager.h"
 #include "api/storage/IPointCloudManager.h"
 #include "core/Log.h"
@@ -53,7 +53,7 @@ int main(int argc, char ** argv) {
 	
 	auto pointCloudManager = xpcfComponentManager->resolve<IPointCloudManager>();
 	auto keyframesManager = xpcfComponentManager->resolve<IKeyframesManager>();
-	auto covisibilityGraph = xpcfComponentManager->resolve<ICovisibilityGraph>();
+	auto covisibilityGraph = xpcfComponentManager->resolve<ICovisibilityGraphManager>();
 	auto bundler = xpcfComponentManager->resolve<api::solver::map::IBundler>();
 	auto viewer3DPoints = xpcfComponentManager->resolve<display::I3DPointsViewer>();
 	LOG_INFO("Loaded components");
@@ -100,6 +100,7 @@ int main(int argc, char ** argv) {
 					}
 					SRef<Keyframe> keyframe = xpcf::utils::make_shared<Keyframe>();
 					keyframe->setKeypoints(points2D);
+					keyframe->setUndistortedKeypoints(points2D);
 					keyframesManager->addKeyframe(keyframe);
 				}
 			}
