@@ -313,7 +313,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 		optimizer.optimize(iterations / 2);
 		// Filter outliers
 		for (const auto &edge : allEdges) {
-			if (edge->chi2() > m_errorOutlier * m_errorOutlier) {
+			if (edge->chi2() > m_errorOutlier * m_errorOutlier || !edge->isDepthPositive()) {
 				edge->setLevel(1);
 			}
 			edge->setRobustKernel(0);
