@@ -105,7 +105,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 	// get cloud points and keyframes to optimize
 	int iterations;
 	std::vector< SRef<Keyframe>> keyframes;
-	std::vector<SRef<CloudPoint>> cloudPoints;
+	std::vector<SRef<CloudPoint>> tmpCloudPoints, cloudPoints;
 	std::set<uint32_t> idxFixedKeyFrames;
 	std::set<uint32_t> idxKeyFrames;
 	if (selectKeyframes.size() > 0) {
@@ -130,7 +130,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 			SRef<CloudPoint> mapPoint;
 			if (m_pointCloudManager->getPoint(index, mapPoint) != FrameworkReturnCode::_SUCCESS)
 				continue;
-			cloudPoints.push_back(mapPoint);
+			tmpCloudPoints.push_back(mapPoint);
 			const std::map<uint32_t, uint32_t> &kpVisibility = mapPoint->getVisibility();
 			for (auto const &it : kpVisibility) {
 				if (idxKeyFrames.find(it.first) == idxKeyFrames.end())
@@ -177,7 +177,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 			SRef<CloudPoint> point;
 			if (m_pointCloudManager->getPoint(it, point) != FrameworkReturnCode::_SUCCESS)
 				continue;
-			cloudPoints.push_back(point);
+			tmpCloudPoints.push_back(point);
 		}
 	}
 	else {
@@ -188,8 +188,13 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 		for (const auto &kf : keyframes)
 			idxKeyFrames.insert(kf->getId());
 		// get all point cloud
-		m_pointCloudManager->getAllPoints(cloudPoints);
+		m_pointCloudManager->getAllPoints(tmpCloudPoints);
 	}
+
+	// filter cloud point more than 1 visibility
+	for (const auto& it : tmpCloudPoints)
+		if (it->getVisibility().size() > 1)
+			cloudPoints.push_back(it);
 
 	// Setup optimizer
 	g2o::SparseOptimizer optimizer;
