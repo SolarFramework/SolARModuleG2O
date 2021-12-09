@@ -136,8 +136,6 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 				if (idxKeyFrames.find(it.first) == idxKeyFrames.end())
 					idxFixedKeyFrames.insert(it.first);
 			}
-			if (idxFixedKeyFrames.size() >= m_nbMaxFixedKeyframes)
-				break;
 		}
 	}		
 	else if (m_useSpanningTree) {
