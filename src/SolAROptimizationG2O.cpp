@@ -235,7 +235,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 	const float thHuber2D = m_errorOutlier;
 	int nbObservations(0);
 	std::vector<g2o::EdgeSE3ProjectXYZ*> allEdges;
-	std::vector<uint32_t> pointEdges;
+	std::vector<SRef<CloudPoint>> pointEdges;
 	// Set MapPoint vertices
 	for (int i = 0; i < cloudPoints.size(); i++) {
 		const SRef<CloudPoint> &mapPoint = cloudPoints[i];
@@ -285,7 +285,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 			optimizer.addEdge(e);
 			nbObservations++;
 			allEdges.push_back(e);
-			pointEdges.push_back(mapPoint->getId());
+			pointEdges.push_back(mapPoint);
 		}
 	}
 
@@ -349,16 +349,23 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 	std::map<uint32_t, std::vector<double>> projErrors;
 	for (int i = 0; i < allEdges.size(); i++) {
 		g2o::EdgeSE3ProjectXYZ* e = allEdges[i];
-		uint32_t cloudPoint_id = pointEdges[i];
-		projErrors[cloudPoint_id].push_back(std::sqrt(e->chi2()));
+		if (e->chi2() > m_errorOutlier * m_errorOutlier || !e->isDepthPositive())
+			pointEdges[i]->setInvalid();
+		else
+			projErrors[pointEdges[i]->getId()].push_back(std::sqrt(e->chi2()));
 	}
+	double totalErr = 0.0;
+	int nbErr = 0;
 	for (const auto &it : projErrors) {
 		SRef<CloudPoint> mapPoint;
 		if (m_pointCloudManager->getPoint(it.first, mapPoint) != FrameworkReturnCode::_SUCCESS)
 			continue;
-		mapPoint->setReprojError(std::accumulate(it.second.begin(), it.second.end(), 0.0) / it.second.size());
+		double error = std::accumulate(it.second.begin(), it.second.end(), 0.0);
+		mapPoint->setReprojError(error / it.second.size());
+		totalErr += error;
+		nbErr += it.second.size();
 	}
-	return optimizer.chi2() / nbObservations;
+	return totalErr / nbErr;
 }
 
 double SolAROptimizationG2O::optimizeSim3(CamCalibration & K1, CamCalibration & K2, const SRef<Keyframe>& keyframe1, const SRef<Keyframe>& keyframe2, const std::vector<DescriptorMatch>& matches, const std::vector<Point3Df> & pts3D1, const std::vector<Point3Df> & pts3D2, Transform3Df & pose)
