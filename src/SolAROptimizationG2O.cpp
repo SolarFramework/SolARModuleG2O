@@ -207,7 +207,7 @@ double SolAROptimizationG2O::bundleAdjustment(const std::vector<uint32_t> & sele
 		vSE3->setEstimate(toSE3Quat(keyframes[i]->getPose().inverse()));
 		const uint32_t &kfId = keyframes[i]->getId();
 		vSE3->setId(kfId);
-		if (m_fixedKeyframes || !keyframes[i]->isOptPose())
+        if (m_fixedKeyframes || keyframes[i]->isFixedPose())
 			vSE3->setFixed(true);
 		else
 			vSE3->setFixed(kfId == 0);
