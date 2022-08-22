@@ -100,7 +100,7 @@ Transform3Df toSolarPose(const g2o::SE3Quat &SE3)
     return pose;
 }
 
-double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(maybe_unused) CamDistortion & D, const std::vector<uint32_t> & selectKeyframes)
+double SolAROptimizationG2O::bundleAdjustment(const std::vector<uint32_t> & selectKeyframes)
 {
 	// get cloud points and keyframes to optimize
 	int iterations;
@@ -207,7 +207,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 		vSE3->setEstimate(toSE3Quat(keyframes[i]->getPose().inverse()));
 		const uint32_t &kfId = keyframes[i]->getId();
 		vSE3->setId(kfId);
-		if (m_fixedKeyframes)
+        if (m_fixedKeyframes || keyframes[i]->isFixedPose())
 			vSE3->setFixed(true);
 		else
 			vSE3->setFixed(kfId == 0);
@@ -275,12 +275,12 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 				g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
 				e->setRobustKernel(rk);
 				rk->setDelta(thHuber2D);
-			}
-
-			e->fx = K(0, 0);
-			e->fy = K(1, 1);
-			e->cx = K(0, 2);
-			e->cy = K(1, 2);
+			}		
+			const CameraParameters& camParams = kf->getCameraParameters();
+			e->fx = camParams.intrinsic(0, 0);
+			e->fy = camParams.intrinsic(1, 1);
+			e->cx = camParams.intrinsic(0, 2);
+			e->cy = camParams.intrinsic(1, 2);		
 
 			optimizer.addEdge(e);
 			nbObservations++;
@@ -368,7 +368,7 @@ double SolAROptimizationG2O::bundleAdjustment(CamCalibration & K, ATTRIBUTE(mayb
 	return totalErr / nbErr;
 }
 
-double SolAROptimizationG2O::optimizeSim3(CamCalibration & K1, CamCalibration & K2, const SRef<Keyframe>& keyframe1, const SRef<Keyframe>& keyframe2, const std::vector<DescriptorMatch>& matches, const std::vector<Point3Df> & pts3D1, const std::vector<Point3Df> & pts3D2, Transform3Df & pose)
+double SolAROptimizationG2O::optimizeSim3(const SRef<Keyframe>& keyframe1, const SRef<Keyframe>& keyframe2, const std::vector<DescriptorMatch>& matches, const std::vector<Point3Df> & pts3D1, const std::vector<Point3Df> & pts3D2, Transform3Df & pose)
 {
 	g2o::SparseOptimizer optimizer;
 	auto linearSolver = std::make_unique<g2o::LinearSolverDense<g2o::BlockSolverX::PoseMatrixType>>();
@@ -385,19 +385,22 @@ double SolAROptimizationG2O::optimizeSim3(CamCalibration & K1, CamCalibration & 
 	translation = sim3_K1_k2.translation() / scale;
 	g2o::Sim3 g2oS12(rot.cast<double>(), translation.cast<double>(), static_cast<double>(scale));
 
+	const CameraParameters& K1 = keyframe1->getCameraParameters();
+	const CameraParameters& K2 = keyframe2->getCameraParameters();
+
 	g2o::VertexSim3Expmap * vSim3 = new g2o::VertexSim3Expmap();
 	vSim3->_fix_scale = (bool)m_fixedScale;
 	vSim3->setEstimate(g2oS12);
 	vSim3->setId(0);
 	vSim3->setFixed(false);
-	vSim3->_principle_point1[0] = K1(0, 2);
-	vSim3->_principle_point1[1] = K1(1, 2);
-	vSim3->_focal_length1[0] = K1(0, 0);
-	vSim3->_focal_length1[1] = K1(1, 1);
-	vSim3->_principle_point2[0] = K2(0, 2);
-	vSim3->_principle_point2[1] = K2(1, 2);
-	vSim3->_focal_length2[0] = K2(0, 0);
-	vSim3->_focal_length2[1] = K2(1, 1);
+	vSim3->_principle_point1[0] = K1.intrinsic(0, 2);
+	vSim3->_principle_point1[1] = K1.intrinsic(1, 2);
+	vSim3->_focal_length1[0] = K1.intrinsic(0, 0);
+	vSim3->_focal_length1[1] = K1.intrinsic(1, 1);
+	vSim3->_principle_point2[0] = K2.intrinsic(0, 2);
+	vSim3->_principle_point2[1] = K2.intrinsic(1, 2);
+	vSim3->_focal_length2[0] = K2.intrinsic(0, 0);
+	vSim3->_focal_length2[1] = K2.intrinsic(1, 1);
 	optimizer.addVertex(vSim3);
 
 	// Set MapPoint vertices

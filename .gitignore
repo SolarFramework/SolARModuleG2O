@@ -6,6 +6,8 @@
 *.lo
 *.o
 *.obj
+.build-rules/
+tests/*/.build-rules/
 *build*
 
 # Precompiled Headers
