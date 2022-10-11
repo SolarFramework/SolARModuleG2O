@@ -27,7 +27,7 @@ CONFIG(release,debug|release) {
     DEFINES += NDEBUG=1
 }
 
-DEPENDENCIESCONFIG = shared install_recurse
+DEPENDENCIESCONFIG = shared install recurse
 
 ## Configuration for Visual Studio to install binaries and dependencies. Work also for QT Creator by replacing QMAKE_INSTALL
 PROJECTCONFIG = QTVS
@@ -46,7 +46,7 @@ include (SolARModuleG2O.pri)
 
 unix {
     # Avoids adding install steps manually. To be commented to have a better control over them.
-    QMAKE_POST_LINK += "make install install_deps"
+    QMAKE_POST_LINK += "make install"
 }
 
 unix:!android {
