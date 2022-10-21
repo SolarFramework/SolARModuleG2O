@@ -8,6 +8,8 @@
 *.obj
 .build-rules/
 tests/*/.build-rules/
+*build*
+deploy
 
 # Precompiled Headers
 *.gch
