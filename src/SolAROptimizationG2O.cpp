@@ -44,6 +44,7 @@ SolAROptimizationG2O::SolAROptimizationG2O():ConfigurableBase(xpcf::toUUID<SolAR
 {
     addInterface<api::solver::map::IBundler>(this);
     declareInjectable<IPointCloudManager>(m_pointCloudManager);
+    declareInjectable<ICameraParametersManager>(m_cameraParametersManager);
     declareInjectable<IKeyframesManager>(m_keyframesManager);
     declareInjectable<ICovisibilityGraphManager>(m_covisibilityGraphManager);
     declareInjectable<api::geom::I3DTransform>(m_transform3D);
@@ -70,8 +71,10 @@ SolAROptimizationG2O::~SolAROptimizationG2O()
 FrameworkReturnCode SolAROptimizationG2O::setMap(const SRef<datastructure::Map> map)
 {
 	m_pointCloudManager->setPointCloud(map->getConstPointCloud());
+    m_cameraParametersManager->setCameraParametersCollection(map->getConstCameraParametersCollection());
 	m_keyframesManager->setKeyframeCollection(map->getConstKeyframeCollection());
-	m_covisibilityGraphManager->setCovisibilityGraph(map->getConstCovisibilityGraph());
+    m_covisibilityGraphManager->setCovisibilityGraph(map->getConstCovisibilityGraph());
+    m_map = map;
 	return FrameworkReturnCode::_SUCCESS;
 }
 
@@ -102,7 +105,7 @@ Transform3Df toSolarPose(const g2o::SE3Quat &SE3)
 
 double SolAROptimizationG2O::bundleAdjustment(const std::vector<uint32_t> & selectKeyframes)
 {
-	// get cloud points and keyframes to optimize
+    // get cloud points and keyframes to optimize
 	int iterations;
 	std::vector< SRef<Keyframe>> keyframes;
 	std::vector<SRef<CloudPoint>> tmpCloudPoints, cloudPoints;
@@ -276,11 +279,16 @@ double SolAROptimizationG2O::bundleAdjustment(const std::vector<uint32_t> & sele
 				e->setRobustKernel(rk);
 				rk->setDelta(thHuber2D);
 			}		
-			const CameraParameters& camParams = kf->getCameraParameters();
-			e->fx = camParams.intrinsic(0, 0);
-			e->fy = camParams.intrinsic(1, 1);
-			e->cx = camParams.intrinsic(0, 2);
-			e->cy = camParams.intrinsic(1, 2);		
+            SRef<CameraParameters> camParams;
+            if (m_cameraParametersManager->getCameraParameters(kf->getCameraID(), camParams) != FrameworkReturnCode :: _SUCCESS)
+            {
+                LOG_WARNING("Camera parameteres with id {} does not exists in the camera parameters manager", kf->getCameraID());
+                continue;
+            }
+            e->fx = camParams->intrinsic(0, 0);
+            e->fy = camParams->intrinsic(1, 1);
+            e->cx = camParams->intrinsic(0, 2);
+            e->cy = camParams->intrinsic(1, 2);
 
 			optimizer.addEdge(e);
 			nbObservations++;
@@ -385,22 +393,30 @@ double SolAROptimizationG2O::optimizeSim3(const SRef<Keyframe>& keyframe1, const
 	translation = sim3_K1_k2.translation() / scale;
 	g2o::Sim3 g2oS12(rot.cast<double>(), translation.cast<double>(), static_cast<double>(scale));
 
-	const CameraParameters& K1 = keyframe1->getCameraParameters();
-	const CameraParameters& K2 = keyframe2->getCameraParameters();
-
+    SRef<CameraParameters> camParamsK1, camParamsK2;
+    if (m_cameraParametersManager->getCameraParameters(keyframe1->getCameraID(), camParamsK1) != FrameworkReturnCode :: _SUCCESS)
+    {
+        LOG_WARNING("Camera parameteres with id {} does not exists in the camera parameters manager", keyframe1->getCameraID());
+        return -1;
+    }
+    if (m_cameraParametersManager->getCameraParameters(keyframe2->getCameraID(), camParamsK2) != FrameworkReturnCode :: _SUCCESS)
+    {
+        LOG_WARNING("Camera parameteres with id {} does not exists in the camera parameters manager", keyframe2->getCameraID());
+        return -1;
+    }
 	g2o::VertexSim3Expmap * vSim3 = new g2o::VertexSim3Expmap();
 	vSim3->_fix_scale = (bool)m_fixedScale;
 	vSim3->setEstimate(g2oS12);
 	vSim3->setId(0);
 	vSim3->setFixed(false);
-	vSim3->_principle_point1[0] = K1.intrinsic(0, 2);
-	vSim3->_principle_point1[1] = K1.intrinsic(1, 2);
-	vSim3->_focal_length1[0] = K1.intrinsic(0, 0);
-	vSim3->_focal_length1[1] = K1.intrinsic(1, 1);
-	vSim3->_principle_point2[0] = K2.intrinsic(0, 2);
-	vSim3->_principle_point2[1] = K2.intrinsic(1, 2);
-	vSim3->_focal_length2[0] = K2.intrinsic(0, 0);
-	vSim3->_focal_length2[1] = K2.intrinsic(1, 1);
+    vSim3->_principle_point1[0] = camParamsK1->intrinsic(0, 2);
+    vSim3->_principle_point1[1] = camParamsK1->intrinsic(1, 2);
+    vSim3->_focal_length1[0] = camParamsK1->intrinsic(0, 0);
+    vSim3->_focal_length1[1] = camParamsK1->intrinsic(1, 1);
+    vSim3->_principle_point2[0] = camParamsK2->intrinsic(0, 2);
+    vSim3->_principle_point2[1] = camParamsK2->intrinsic(1, 2);
+    vSim3->_focal_length2[0] = camParamsK2->intrinsic(0, 0);
+    vSim3->_focal_length2[1] = camParamsK2->intrinsic(1, 1);
 	optimizer.addVertex(vSim3);
 
 	// Set MapPoint vertices
