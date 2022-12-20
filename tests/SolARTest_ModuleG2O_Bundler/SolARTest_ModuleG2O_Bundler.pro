@@ -7,7 +7,7 @@ QMAKE_PROJECT_DEPTH = 0
 ## global defintions : target lib name, version
 TARGET = SolARTest_ModuleG2O_Bundler
 VERSION=1.0.0
-PROJECTDEPLOYDIR = $${PWD}/..
+PROJECTDEPLOYDIR = $${PWD}/../deploy
 
 DEFINES += MYVERSION=$${VERSION}
 CONFIG += c++1z

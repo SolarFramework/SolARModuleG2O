@@ -21,6 +21,7 @@
 #include "api/solver/map/IBundler.h"
 #include "api/storage/ICovisibilityGraphManager.h"
 #include "api/storage/IKeyframesManager.h"
+#include "api/storage/ICameraParametersManager.h"
 #include "api/storage/IPointCloudManager.h"
 #include "api/geom/I3DTransform.h"
 
@@ -36,6 +37,7 @@ namespace G2O {
  *
  * @SolARComponentInjectablesBegin
  * @SolARComponentInjectable{SolAR::api::storage::IPointCloudManager}
+ * @SolARComponentInjectable{SolAR::api::storage::ICameraParametersManager}
  * @SolARComponentInjectable{SolAR::api::storage::IKeyframesManager}
  * @SolARComponentInjectable{SolAR::api::storage::ICovisibilityGraphManager}
  * @SolARComponentInjectablesEnd
@@ -121,9 +123,11 @@ private:
 	int							m_fixedMap = 0;
 	int							m_fixedKeyframes = 0;
 	int							m_fixedScale = 0;
+    SRef<datastructure::Map>                        m_map;
     SRef<api::geom::I3DTransform>					m_transform3D;
 	SRef<api::storage::IPointCloudManager>			m_pointCloudManager;
 	SRef<api::storage::IKeyframesManager>			m_keyframesManager;
+    SRef<api::storage::ICameraParametersManager>	m_cameraParametersManager;
 	SRef<api::storage::ICovisibilityGraphManager>	m_covisibilityGraphManager;
 };
 
