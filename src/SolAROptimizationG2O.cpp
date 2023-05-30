@@ -185,9 +185,10 @@ double SolAROptimizationG2O::bundleAdjustment(const std::vector<uint32_t> & sele
 		iterations = m_iterationsGlobal;
 		LOG_INFO("Global bundle adjustment");
 		// get all keyframes
-		m_keyframesManager->getAllKeyframes(keyframes);
-		for (const auto &kf : keyframes)
-			idxKeyFrames.insert(kf->getId());
+        if (m_keyframesManager->getAllKeyframes(keyframes) == FrameworkReturnCode::_SUCCESS) {
+            for (const auto &kf : keyframes)
+                idxKeyFrames.insert(kf->getId());
+        }
 		// get all point cloud
 		m_pointCloudManager->getAllPoints(tmpCloudPoints);
 	}
