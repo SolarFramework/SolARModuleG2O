@@ -189,8 +189,15 @@ double SolAROptimizationG2O::bundleAdjustment(const std::vector<uint32_t> & sele
             for (const auto &kf : keyframes)
                 idxKeyFrames.insert(kf->getId());
         }
+        else {
+            LOG_ERROR("Error while trying to get all keyframes from KeyframeManager");
+            return 0;
+        }
 		// get all point cloud
-		m_pointCloudManager->getAllPoints(tmpCloudPoints);
+        if (m_pointCloudManager->getAllPoints(tmpCloudPoints) != FrameworkReturnCode::_SUCCESS) {
+            LOG_ERROR("Error while trying to get all points of the cloud from PointCloudManager");
+            return 0;
+        }
 	}
 
 	// filter cloud point more than 1 visibility
