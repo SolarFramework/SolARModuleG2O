@@ -49,7 +49,7 @@ unix {
     QMAKE_POST_LINK += "make install install_deps"
 }
 
-unix:!android {
+unix {
     QMAKE_CXXFLAGS += -Wignored-qualifiers
 }
 
@@ -75,11 +75,6 @@ win32 {
     QMAKE_CXXFLAGS_DEBUG += \Od
     QMAKE_CXXFLAGS_RELEASE += \O2
     QMAKE_CXXFLAGS += /bigobj
-}
-
-android {
-    QMAKE_LFLAGS += -nostdlib++
-    ANDROID_ABIS="arm64-v8a"
 }
 
 
