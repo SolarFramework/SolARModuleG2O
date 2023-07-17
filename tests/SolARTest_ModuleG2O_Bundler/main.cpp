@@ -26,6 +26,7 @@
 #include "api/solver/map/IBundler.h"
 #include "api/storage/ICovisibilityGraphManager.h"
 #include "api/storage/IKeyframesManager.h"
+#include "api/storage/ICameraParametersManager.h"
 #include "api/storage/IPointCloudManager.h"
 #include "core/Log.h"
 
@@ -53,20 +54,23 @@ int main(int argc, char ** argv) {
 	
 	auto pointCloudManager = xpcfComponentManager->resolve<IPointCloudManager>();
 	auto keyframesManager = xpcfComponentManager->resolve<IKeyframesManager>();
-	auto covisibilityGraph = xpcfComponentManager->resolve<ICovisibilityGraphManager>();
+    auto cameraParametersManager = xpcfComponentManager->resolve<ICameraParametersManager>();
+    auto covisibilityGraph = xpcfComponentManager->resolve<ICovisibilityGraphManager>();
 	auto bundler = xpcfComponentManager->resolve<api::solver::map::IBundler>();
 	auto viewer3DPoints = xpcfComponentManager->resolve<display::I3DPointsViewer>();
 	LOG_INFO("Loaded components");
 	
     std::string scene = "room15";
-    const std::string path_poses        = "../../data/" + scene + "Bundle/" + scene + "Poses.txt";
-    const std::string path_points3d     = "../../data/" + scene + "Bundle/" + scene + "Pts3D.txt";;
-    const std::string path_points2d     = "../../data/" + scene + "Bundle/" + scene + "Pts2D.txt";
-    const std::string path_calibration  = "../../data/" + scene + "Bundle/" + scene + "Calibration.txt";
-    const std::string path_distortion   = "../../data/" + scene + "Bundle/" + scene + "Distortion.txt";
+    const std::string path_poses        = "../../../../data/" + scene + "Bundle/" + scene + "Poses.txt";
+    const std::string path_points3d     = "../../../../data/" + scene + "Bundle/" + scene + "Pts3D.txt";;
+    const std::string path_points2d     = "../../../../data/" + scene + "Bundle/" + scene + "Pts2D.txt";
+    const std::string path_calibration  = "../../../../data/" + scene + "Bundle/" + scene + "Calibration.txt";
+    const std::string path_distortion   = "../../../../data/" + scene + "Bundle/" + scene + "Distortion.txt";
 
 	CamCalibration  intrinsic;
     CamDistortion   distortion;
+    CameraParameters camParams;
+    uint32_t cameraID;
 
 	auto load2DPoints = [&](const std::string & path_measures) {
 		int N;
@@ -101,6 +105,7 @@ int main(int argc, char ** argv) {
 					SRef<Keyframe> keyframe = xpcf::utils::make_shared<Keyframe>();
 					keyframe->setKeypoints(points2D);
 					keyframe->setUndistortedKeypoints(points2D);
+                    keyframe->setCameraID(cameraID);
 					keyframesManager->addKeyframe(keyframe);
 				}
 			}
@@ -159,7 +164,7 @@ int main(int argc, char ** argv) {
 				}
 				pose(3, 0) = 0.0; pose(3, 1) = 0.0; pose(3, 2) = 0.0; pose(3, 3) = 1.0;
 				SRef<Keyframe> keyframe;
-				keyframesManager->getKeyframe(i, keyframe);
+				keyframesManager->getKeyframe(i, keyframe);              
 				keyframe->setPose(pose);
 			}
 		}
@@ -204,10 +209,15 @@ int main(int argc, char ** argv) {
 	};
 
     LOG_INFO("Load data to bundle");
-    load2DPoints(path_points2d);
-    loadExtrinsics(path_poses);
     loadIntrinsic(path_calibration);
     loadDistortions(path_distortion);
+    camParams.intrinsic = intrinsic;
+    camParams.distortion = distortion;
+    cameraParametersManager->addCameraParameters(camParams);
+    cameraID = camParams.id;
+
+    load2DPoints(path_points2d);
+    loadExtrinsics(path_poses);    
 	load3DPoints(path_points3d);
 
 	// get all keyframes
@@ -239,8 +249,7 @@ int main(int argc, char ** argv) {
 
 	LOG_INFO("Run bundle adjustment");
     // double reproj_errorFinal_local  = bundler->bundleAdjustment(intrinsic, distortion, selectedKeyframes);
-    std::vector<uint32_t> noSelectedKeyframes;
-    double reproj_errorFinal_global = bundler->bundleAdjustment(intrinsic, distortion, noSelectedKeyframes);
+    double reproj_errorFinal_global = bundler->bundleAdjustment();
     // LOG_INFO("Reprojection error final for local bundle: {}", reproj_errorFinal_local);
     LOG_INFO("Reprojection error final for global bundle: {}", reproj_errorFinal_global);
 
