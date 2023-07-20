@@ -1,3 +1,7 @@
+# DEPRECATED - This repo is no longer maintained
+
+----
+
 # SolARModuleG2O
 
 [![License](https://img.shields.io/github/license/SolARFramework/SolARModuleG2O?style=flat-square&label=License)](https://www.apache.org/licenses/LICENSE-2.0)
